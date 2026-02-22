@@ -1,0 +1,21 @@
+{
+  "name": "markdown-sync Go Dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "remoteUser": "vscode",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "go.gopath": "/go"
+  },
+  "extensions": [
+    "golang.go",
+    "golangci-lint",
+    "eamodio.gitlens"
+  ],
+  "postCreateCommand": "make setup || true",
+  "forwardPorts": [],
+  "features": {}
+}

@@ -57,6 +57,8 @@ Supporting Documents (drafts)
 - docs/mapping.md — deterministic mapping rules and limitations.
 - docs/coding-guidelines.md — Go-specific coding conventions and rules for contributors.
 - docs/testing.md — testing strategy and CI gating for integration tests.
+ - docs/testing.md — testing strategy and CI gating for integration tests.
+ - agents/ — AI coding agent resources (skills, workflows, references). See agents/index.yaml for discovery.
 
 Roadmap and Next Work
 ----------------------

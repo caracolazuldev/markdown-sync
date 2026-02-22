@@ -1,0 +1,10 @@
+.idea/
+*.iml
+bin/
+dist/
+*.log
+*.json
+.DS_Store
+*.exe
+*.so
+*.dll

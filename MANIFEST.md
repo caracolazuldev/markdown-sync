@@ -61,6 +61,11 @@ Supporting Documents (drafts)
 Roadmap and Next Work
 ----------------------
 v0.1: Manual export/import/preview + auth flows + mapping for core features.
+v0.2: Add bidirectional sync, comments/suggestions mapping, automatic watchers.
+
+CI and Automation
+-----------------
+Continuous integration, automated release workflows, and gated integration tests are deferred until the core CLI functionality and mapping rules stabilize. For now, contributors should use the `Makefile` targets for local build, lint, and test workflows. CI will be added later and tracked in the project plan (task: "CI setup (deferred)").
 
 Contact
 -------

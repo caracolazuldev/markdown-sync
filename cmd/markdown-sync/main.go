@@ -70,6 +70,7 @@ func main() {
 	doc := fs.String("doc", "", "Google Doc ID")
 	file := fs.String("file", "", "local markdown file")
 	dry := fs.Bool("dry-run", false, "dry run")
+	diff := fs.Bool("diff", false, "show diff between local file and remote doc")
 	fs.Parse(os.Args[2:])
 
 	switch cmd {
@@ -79,7 +80,14 @@ func main() {
 			os.Exit(1)
 		}
 	case "import":
-		fmt.Printf("import: file=%s doc=%s auth=%s dry=%v\n", *file, *doc, *auth, *dry)
+		if *diff {
+			if err := importToWriter(*auth, *file, *doc, true, os.Stdout, os.Stderr); err != nil {
+				fmt.Fprintf(os.Stderr, "import error: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Printf("import: file=%s doc=%s auth=%s dry=%v\n", *file, *doc, *auth, *dry)
+		}
 	case "preview":
 		if err := previewToWriter(*auth, *doc, 20, os.Stdout, os.Stderr); err != nil {
 			fmt.Fprintf(os.Stderr, "preview error: %v\n", err)
@@ -142,4 +150,68 @@ func listToWriter(authMode string, stdout io.Writer, stderr io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// importToWriter compares a local markdown file with the remote document and
+// writes a simple line-oriented diff to stdout when diffOnly is true.
+func importToWriter(authMode, localFile, docID string, diffOnly bool, stdout io.Writer, stderr io.Writer) error {
+	if docID == "" {
+		fmt.Fprintln(stderr, "import requires -doc <doc-id>")
+		return fmt.Errorf("missing doc id")
+	}
+	if localFile == "" {
+		fmt.Fprintln(stderr, "import requires -file <path>")
+		return fmt.Errorf("missing file path")
+	}
+	localBytes, err := ioutil.ReadFile(localFile)
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to read local file: %v\n", err)
+		return err
+	}
+	local := strings.Split(string(localBytes), "\n")
+
+	docModel, err := md.FetchDocument(authMode, docID)
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to fetch doc: %v\n", err)
+		return err
+	}
+	remoteMd, err := md.DocumentToMarkdown(docModel)
+	if err != nil {
+		fmt.Fprintf(stderr, "conversion error: %v\n", err)
+		return err
+	}
+	remote := strings.Split(remoteMd, "\n")
+
+	if diffOnly {
+		// simple unified-style diff output (not full RFC unified diff)
+		fmt.Fprintln(stdout, "--- remote")
+		fmt.Fprintln(stdout, "+++ local")
+		max := len(remote)
+		if len(local) > max {
+			max = len(local)
+		}
+		for i := 0; i < max; i++ {
+			var r, l string
+			if i < len(remote) {
+				r = remote[i]
+			}
+			if i < len(local) {
+				l = local[i]
+			}
+			if r == l {
+				// context
+				fmt.Fprintf(stdout, "  %s\n", r)
+			} else {
+				if r != "" {
+					fmt.Fprintf(stdout, "- %s\n", r)
+				}
+				if l != "" {
+					fmt.Fprintf(stdout, "+ %s\n", l)
+				}
+			}
+		}
+		return nil
+	}
+
+	return fmt.Errorf("import apply not implemented")
 }

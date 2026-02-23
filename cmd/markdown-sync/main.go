@@ -81,9 +81,15 @@ func main() {
 	case "import":
 		fmt.Printf("import: file=%s doc=%s auth=%s dry=%v\n", *file, *doc, *auth, *dry)
 	case "preview":
-		fmt.Printf("preview: doc=%s auth=%s\n", *doc, *auth)
+		if err := previewToWriter(*auth, *doc, 20, os.Stdout, os.Stderr); err != nil {
+			fmt.Fprintf(os.Stderr, "preview error: %v\n", err)
+			os.Exit(1)
+		}
 	case "list":
-		fmt.Printf("list: auth=%s\n", *auth)
+		if err := listToWriter(*auth, os.Stdout, os.Stderr); err != nil {
+			fmt.Fprintf(os.Stderr, "list error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		usage()
 		os.Exit(2)
@@ -121,4 +127,19 @@ func exportToWriter(authMode, docID, out string, dry bool, stdout io.Writer, std
 	}
 	_, err = fmt.Fprintf(stdout, "wrote %d bytes to %s\n", len(markdown), out)
 	return err
+}
+
+// listToWriter writes a simple list of available documents to stdout.
+func listToWriter(authMode string, stdout io.Writer, stderr io.Writer) error {
+	list, err := md.ListDocuments(authMode)
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to list documents: %v\n", err)
+		return err
+	}
+	for _, ds := range list {
+		if _, err := fmt.Fprintf(stdout, "%s\t%s\n", ds.ID, ds.Title); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -20,3 +20,19 @@ func FetchDocument(authMode, docID string) (*Document, error) {
 		},
 	}, nil
 }
+
+// DocumentSummary is a lightweight descriptor returned by list operations.
+type DocumentSummary struct {
+	ID    string
+	Title string
+}
+
+// ListDocuments returns a sample list of documents. In the real adapter this
+// will call the Google Drive/Docs API to list accessible documents.
+func ListDocuments(authMode string) ([]DocumentSummary, error) {
+	// Return a small static set for early development and tests.
+	return []DocumentSummary{
+		{ID: "doc-1", Title: "Sample Doc"},
+		{ID: "doc-2", Title: "Another Doc"},
+	}, nil
+}

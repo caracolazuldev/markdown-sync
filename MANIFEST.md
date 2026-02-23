@@ -57,6 +57,9 @@ Supporting Documents (drafts)
 - docs/mapping.md — deterministic mapping rules and limitations.
 - docs/coding-guidelines.md — Go-specific coding conventions and rules for contributors.
 - docs/testing.md — testing strategy and CI gating for integration tests.
+ - docs/approach.md — guidance and records for implementation/algorithmic approaches and when to use them.
+ - docs/decisions.md — recorded architecture and business-logic decisions and approach entries.
+ - agents/references/design-patterns.md — project-relevant design patterns and practical notes.
  - docs/testing.md — testing strategy and CI gating for integration tests.
  - agents/ — AI coding agent resources (skills, workflows, references). See agents/index.yaml for discovery.
 
@@ -72,3 +75,7 @@ Continuous integration, automated release workflows, and gated integration tests
 Contact
 -------
 Owner: repository maintainer (TBD)
+
+Decisions
+---------
+- See `docs/decisions.md` for recorded architecture and business-logic decisions; PRs updating architecture or business logic must add or update a decision record.

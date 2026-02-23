@@ -1,0 +1,41 @@
+name: feature-development
+description: Standard workflow for implementing features and fixes
+steps:
+  - id: define
+    title: Define scope and acceptance criteria
+  - id: branch
+    title: Create feature branch
+    action: git checkout -b feature/<short-desc>
+  - id: implement
+    title: Implement changes in small commits
+  - id: test
+    title: Run tests frequently
+    skill: run-tests
+  - id: tidy
+    title: Update modules
+    action: go mod tidy
+  - id: docs
+    title: Update docs and references
+  - id: staticcheck
+    title: Run static analysis
+    action: staticcheck ./...
+  - id: pr
+    title: Prepare PR with reflection
+    outputs:
+      - pr_url
+      - reflection
+transitions:
+  - from: define
+    to: branch
+  - from: branch
+    to: implement
+  - from: implement
+    to: test
+  - from: test
+    to: tidy
+  - from: tidy
+    to: docs
+  - from: docs
+    to: staticcheck
+  - from: staticcheck
+    to: pr

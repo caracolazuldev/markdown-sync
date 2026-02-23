@@ -1,0 +1,25 @@
+name: run-tests
+description: Run test suite and return structured results
+inputs:
+  packages:
+    type: array
+    items: string
+    description: list of packages or ['./...']
+    required: false
+outputs:
+  status:
+    type: string
+    description: 'ok or fail'
+  failed_packages:
+    type: array
+    items: string
+  summary:
+    type: string
+  logs:
+    type: string
+preconditions:
+  - repository root is present
+  - `make` or `go` is available in PATH
+run:
+  - cmd: make test
+    cwd: $REPO_ROOT

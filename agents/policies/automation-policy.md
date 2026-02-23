@@ -16,3 +16,7 @@ Enforcement aid:
 - CI should enforce these policies by refusing merges that bypass PR checks.
 
 If you are implementing automation, follow these rules and include a short note in the PR describing the automation's purpose and the human approver.
+
+Post-feature requirement
+- Agents must run the `agents/post_feature_checklist.md` after implementing a feature and include the checklist answers and any suggested updates to agent instructions in the PR description.
+

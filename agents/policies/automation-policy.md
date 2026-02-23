@@ -20,3 +20,17 @@ If you are implementing automation, follow these rules and include a short note 
 Post-feature requirement
 - Agents must run the `agents/post_feature_checklist.md` after implementing a feature and include the checklist answers and any suggested updates to agent instructions in the PR description.
 
+PR checklist requirement
+- When a change touches sensitive files (code under `internal/`, `docs/`, `.devcontainer/`, `go.mod`, `go.sum`, `MANIFEST.md`, `Makefile`), the PR must include one or more of the following in the PR description:
+	- A reference to an `ADR-YYYY-MM-DD-...` id documenting the business/architectural decision, or
+	- A reference to an `APP-YYYY-MM-DD-...` id documenting the implementation/approach choice.
+
+Suggested PR content:
+- Short summary of the change.
+- Tests run and result (brief).
+- Links to affected decision/approach records (ADR/APP ids) or a note if none exist and one will be added.
+
+Guidance for maintainers and automation:
+- If maintainers set up CI checks to enforce this policy, they can require that PR descriptions include `ADR-` or `APP-` ids when the sensitive file patterns are modified. See `agents/policies/pr-guidelines.md` for a suggested, human-readable enforcement procedure and example grep commands.
+
+

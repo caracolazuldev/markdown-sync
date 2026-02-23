@@ -15,6 +15,7 @@ Steps
 6. Add or update documentation in `docs/` or `agents/references/`.
 7. Run static checks (`staticcheck`).
 8. Prepare PR with summary, tests run, and post-feature reflection (see `agents/post_feature_checklist.md`).
+9. If the change touches sensitive files, include ADR/APP ids in the PR description and link to the decision/approach records (see `agents/policies/pr-guidelines.md`).
 
 Decision points
 - If dependency upgrade required, include compatibility notes in `agents/references/dependencies.md` and prefer a separate PR for major upgrades.

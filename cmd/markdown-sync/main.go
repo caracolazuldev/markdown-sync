@@ -3,6 +3,7 @@ package main
 import (
     "flag"
     "fmt"
+    "io"
     "io/ioutil"
     "os"
 
@@ -31,33 +32,10 @@ func main() {
 
     switch cmd {
     case "export":
-        if *doc == "" {
-            fmt.Fprintln(os.Stderr, "export requires -doc <doc-id>")
-            os.Exit(2)
-        }
-        docModel, err := md.FetchDocument(*auth, *doc)
-        if err != nil {
-            fmt.Fprintf(os.Stderr, "failed to fetch doc: %v\n", err)
+        if err := exportToWriter(*auth, *doc, *out, *dry, os.Stdout, os.Stderr); err != nil {
+            fmt.Fprintf(os.Stderr, "export error: %v\n", err)
             os.Exit(1)
         }
-        markdown, err := md.DocumentToMarkdown(docModel)
-        if err != nil {
-            fmt.Fprintf(os.Stderr, "conversion error: %v\n", err)
-            os.Exit(1)
-        }
-        if *out == "" {
-            fmt.Print(markdown)
-            return
-        }
-        if *dry {
-            fmt.Printf("dry-run: would write %d bytes to %s\n", len(markdown), *out)
-            return
-        }
-        if err := ioutil.WriteFile(*out, []byte(markdown), 0644); err != nil {
-            fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
-            os.Exit(1)
-        }
-        fmt.Fprintf(os.Stdout, "wrote %d bytes to %s\n", len(markdown), *out)
     case "import":
         fmt.Printf("import: file=%s doc=%s auth=%s dry=%v\n", *file, *doc, *auth, *dry)
     case "preview":
@@ -68,4 +46,37 @@ func main() {
         usage()
         os.Exit(2)
     }
+}
+
+// exportToWriter performs the export flow and writes output or messages to the
+// provided writers. It is separated from main for easier testing.
+func exportToWriter(authMode, docID, out string, dry bool, stdout io.Writer, stderr io.Writer) error {
+    if docID == "" {
+        fmt.Fprintln(stderr, "export requires -doc <doc-id>")
+        return fmt.Errorf("missing doc id")
+    }
+    docModel, err := md.FetchDocument(authMode, docID)
+    if err != nil {
+        fmt.Fprintf(stderr, "failed to fetch doc: %v\n", err)
+        return err
+    }
+    markdown, err := md.DocumentToMarkdown(docModel)
+    if err != nil {
+        fmt.Fprintf(stderr, "conversion error: %v\n", err)
+        return err
+    }
+    if out == "" {
+        _, err := io.WriteString(stdout, markdown)
+        return err
+    }
+    if dry {
+        _, err := fmt.Fprintf(stdout, "dry-run: would write %d bytes to %s\n", len(markdown), out)
+        return err
+    }
+    if err := ioutil.WriteFile(out, []byte(markdown), 0644); err != nil {
+        fmt.Fprintf(stderr, "failed to write output: %v\n", err)
+        return err
+    }
+    _, err = fmt.Fprintf(stdout, "wrote %d bytes to %s\n", len(markdown), out)
+    return err
 }

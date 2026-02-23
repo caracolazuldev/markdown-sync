@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
@@ -198,7 +199,40 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 					BulletPreset: "NUMBERED_DECIMAL",
 				}})
 			} else {
-				appendInsert(txt + "\n")
+				// handle inline formatting (bold, italic, code, links)
+				clean, spans := parseInline(txt)
+				start := appendInsert(clean + "\n")
+				// apply spans
+				for _, sp := range spans {
+					s := start + int64(sp.Offset)
+					eidx := s + int64(sp.Length)
+					switch sp.Kind {
+					case "bold":
+						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+							TextStyle: &docs.TextStyle{Bold: true},
+							Fields:    "bold",
+						}})
+					case "italic":
+						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+							TextStyle: &docs.TextStyle{Italic: true},
+							Fields:    "italic",
+						}})
+					case "code":
+						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+							TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
+							Fields:    "weightedFontFamily",
+						}})
+					case "link":
+						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+							TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
+							Fields:    "link",
+						}})
+					}
+				}
 			}
 		case CodeBlock:
 			start := appendInsert(v.Code + "\n")
@@ -220,4 +254,86 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		}
 	}
 	return reqs, nil
+}
+
+type inlineSpan struct {
+	Offset int
+	Length int
+	Kind   string // "bold", "italic", "code", "link"
+	Data   string // for link: URL
+}
+
+// parseInline returns the cleaned text with markers removed and a set of
+// spans describing formatting to apply.
+func parseInline(s string) (string, []inlineSpan) {
+	var spans []inlineSpan
+	// patterns
+	linkRe := regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
+	codeRe := regexp.MustCompile("`([^`]+)`")
+	boldRe := regexp.MustCompile(`\*\*(.+?)\*\*`)
+	italicRe := regexp.MustCompile(`\*(.+?)\*`)
+
+	type match struct {
+		start      int
+		end        int
+		innerStart int
+		innerEnd   int
+		kind       string
+		data       string
+	}
+	var matches []match
+
+	// helper to collect matches for a regex (overall and first subgroup)
+	collect := func(r *regexp.Regexp, kind string) {
+		locs := r.FindAllStringSubmatchIndex(s, -1)
+		for _, l := range locs {
+			if len(l) >= 4 {
+				matches = append(matches, match{start: l[0], end: l[1], innerStart: l[2], innerEnd: l[3], kind: kind})
+				if kind == "link" && len(l) >= 6 {
+					// subgroup 2 is URL
+					// find indices for subgroup 2
+					// regexp package gives pairs sequentially; subgroup 2 indices at positions 4/5
+					if len(l) >= 6 {
+						matches[len(matches)-1].data = s[l[4]:l[5]]
+					}
+				}
+			}
+		}
+	}
+
+	collect(linkRe, "link")
+	collect(codeRe, "code")
+	collect(boldRe, "bold")
+	collect(italicRe, "italic")
+
+	// sort matches by start
+	sort.Slice(matches, func(i, j int) bool { return matches[i].start < matches[j].start })
+
+	// filter overlapping: keep non-overlapping in order
+	var kept []match
+	lastEnd := -1
+	for _, m := range matches {
+		if m.start >= lastEnd {
+			kept = append(kept, m)
+			lastEnd = m.end
+		}
+	}
+
+	var out strings.Builder
+	pos := 0
+	for _, m := range kept {
+		if m.start > pos {
+			out.WriteString(s[pos:m.start])
+		}
+		inner := s[m.innerStart:m.innerEnd]
+		// record offset in output
+		off := out.Len()
+		out.WriteString(inner)
+		spans = append(spans, inlineSpan{Offset: off, Length: len(inner), Kind: m.kind, Data: m.data})
+		pos = m.end
+	}
+	if pos < len(s) {
+		out.WriteString(s[pos:])
+	}
+	return out.String(), spans
 }

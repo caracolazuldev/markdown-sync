@@ -183,24 +183,27 @@ func importToWriter(authMode, localFile, docID string, diffOnly bool, stdout io.
 	remote := strings.Split(remoteMd, "\n")
 
 	if diffOnly {
-		// simple unified-style diff output (not full RFC unified diff)
+		// Produce a minimal unified diff with a single chunk.
 		fmt.Fprintln(stdout, "--- remote")
 		fmt.Fprintln(stdout, "+++ local")
-		max := len(remote)
-		if len(local) > max {
-			max = len(local)
+		// compute lengths
+		rLen := len(remote)
+		lLen := len(local)
+		fmt.Fprintf(stdout, "@@ -1,%d +1,%d @@\n", rLen, lLen)
+		max := rLen
+		if lLen > max {
+			max = lLen
 		}
 		for i := 0; i < max; i++ {
 			var r, l string
-			if i < len(remote) {
+			if i < rLen {
 				r = remote[i]
 			}
-			if i < len(local) {
+			if i < lLen {
 				l = local[i]
 			}
 			if r == l {
-				// context
-				fmt.Fprintf(stdout, "  %s\n", r)
+				fmt.Fprintf(stdout, " %s\n", r)
 			} else {
 				if r != "" {
 					fmt.Fprintf(stdout, "- %s\n", r)

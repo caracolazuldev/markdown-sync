@@ -93,22 +93,83 @@ func ApplyDocument(authMode, docID string, doc *Document) error {
 		endIndex = endIndex - 1
 	}
 
-	// Build batch requests: delete existing body content (from 1..endIndex)
-	// then insert the new markdown text at index 1.
-	requests := []*docs.Request{
-		{
-			DeleteContentRange: &docs.DeleteContentRangeRequest{
-				Range: &docs.Range{StartIndex: 1, EndIndex: endIndex},
-			},
-		},
-		{
-			InsertText: &docs.InsertTextRequest{Text: mdText, Location: &docs.Location{Index: 1}},
-		},
+	// Build structured requests from the Document model.
+	requests, err := buildDocsRequests(mdText, doc)
+	if err != nil {
+		return fmt.Errorf("building docs requests: %w", err)
 	}
 
-	_, err = svc.Documents.BatchUpdate(docID, &docs.BatchUpdateDocumentRequest{Requests: requests}).Do()
+	// Prepend delete of existing content.
+	delReq := &docs.Request{DeleteContentRange: &docs.DeleteContentRangeRequest{Range: &docs.Range{StartIndex: 1, EndIndex: endIndex}}}
+	all := append([]*docs.Request{delReq}, requests...)
+
+	_, err = svc.Documents.BatchUpdate(docID, &docs.BatchUpdateDocumentRequest{Requests: all}).Do()
 	if err != nil {
 		return fmt.Errorf("batch update failed: %w", err)
 	}
 	return nil
+}
+
+// buildDocsRequests converts a markdown string and Document into a sequence of
+// Google Docs Requests that insert text and apply simple heading styles.
+func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
+	var reqs []*docs.Request
+	// We'll insert each element's text and, for headings, add an UpdateParagraphStyle request.
+	var currIndex int64 = 1
+
+	appendInsert := func(text string) int64 {
+		// create InsertText request at current index
+		r := &docs.Request{InsertText: &docs.InsertTextRequest{Text: text, Location: &docs.Location{Index: currIndex}}}
+		reqs = append(reqs, r)
+		length := int64(len(text))
+		currIndex += length
+		return currIndex - length
+	}
+
+	for _, e := range doc.Body {
+		switch v := e.(type) {
+		case Heading:
+			// Insert heading text + newline
+			start := appendInsert(v.Text + "\n")
+			end := currIndex
+			// Map level to NamedStyleType
+			var nst string
+			switch v.Level {
+			case 1:
+				nst = "HEADING_1"
+			case 2:
+				nst = "HEADING_2"
+			case 3:
+				nst = "HEADING_3"
+			case 4:
+				nst = "HEADING_4"
+			case 5:
+				nst = "HEADING_5"
+			default:
+				nst = "HEADING_6"
+			}
+			reqs = append(reqs, &docs.Request{UpdateParagraphStyle: &docs.UpdateParagraphStyleRequest{
+				Range:          &docs.Range{StartIndex: start, EndIndex: end},
+				ParagraphStyle: &docs.ParagraphStyle{NamedStyleType: nst},
+				Fields:         "namedStyleType",
+			}})
+		case Paragraph:
+			appendInsert(v.Text + "\n")
+		case CodeBlock:
+			appendInsert("```" + v.Language + "\n" + v.Code + "\n```\n")
+		case Image:
+			// Insert a placeholder text and then an InsertInlineImage request. The
+			// InsertInlineImage requires a URI and an object with the location.
+			// We'll insert a newline as anchor and then insert the image at that index.
+			// Insert a newline to reserve space
+			start := appendInsert("\n")
+			reqs = append(reqs, &docs.Request{InsertInlineImage: &docs.InsertInlineImageRequest{
+				Uri:      v.URL,
+				Location: &docs.Location{Index: start},
+			}})
+		default:
+			// ignore unknown elements
+		}
+	}
+	return reqs, nil
 }

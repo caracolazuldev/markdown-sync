@@ -36,3 +36,14 @@ func ListDocuments(authMode string) ([]DocumentSummary, error) {
 		{ID: "doc-2", Title: "Another Doc"},
 	}, nil
 }
+
+// ApplyDocument applies the provided Document to the remote document identified
+// by docID. This is a stub that simulates an update; the real implementation
+// will call Google Docs API to patch the document contents.
+func ApplyDocument(authMode, docID string, doc *Document) error {
+	if docID == "" {
+		return fmt.Errorf("missing doc id")
+	}
+	// no-op for stub
+	return nil
+}

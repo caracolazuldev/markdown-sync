@@ -111,5 +111,90 @@ func ToMarkdown(doc interface{}) (string, error) {
 // For now this is intentionally unimplemented and returns an error. Import
 // workflows will add parsing as needed.
 func FromMarkdown(md string) (interface{}, error) {
-	return nil, fmt.Errorf("FromMarkdown not implemented")
+	// Very small markdown -> Document parser used for import apply in v0.1.
+	// Supports headings (#), code fences (```), images ![alt](url), and
+	// paragraphs separated by blank lines.
+	var doc Document
+	lines := strings.Split(md, "\n")
+	inCode := false
+	var codeLang string
+	var codeBuf []string
+	var paraBuf []string
+
+	pushParagraph := func() {
+		if len(paraBuf) == 0 {
+			return
+		}
+		doc.Body = append(doc.Body, Paragraph{Text: strings.Join(paraBuf, " ")})
+		paraBuf = nil
+	}
+
+	for i := 0; i < len(lines); i++ {
+		ln := lines[i]
+		if strings.HasPrefix(ln, "---") && i == 0 {
+			// skip simple frontmatter block until closing ---
+			for j := i + 1; j < len(lines); j++ {
+				if strings.HasPrefix(lines[j], "---") {
+					i = j
+					break
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(ln, "```") {
+			if !inCode {
+				inCode = true
+				codeLang = strings.TrimSpace(strings.TrimPrefix(ln, "```"))
+				codeBuf = nil
+			} else {
+				// end code
+				doc.Body = append(doc.Body, CodeBlock{Language: codeLang, Code: strings.Join(codeBuf, "\n")})
+				inCode = false
+				codeLang = ""
+				codeBuf = nil
+			}
+			continue
+		}
+		if inCode {
+			codeBuf = append(codeBuf, ln)
+			continue
+		}
+		lnTrim := strings.TrimSpace(ln)
+		if lnTrim == "" {
+			pushParagraph()
+			continue
+		}
+		if strings.HasPrefix(lnTrim, "#") {
+			pushParagraph()
+			// count leading #'s
+			lvl := 0
+			for _, r := range lnTrim {
+				if r == '#' {
+					lvl++
+				} else {
+					break
+				}
+			}
+			text := strings.TrimSpace(lnTrim[lvl:])
+			doc.Body = append(doc.Body, Heading{Level: lvl, Text: text})
+			continue
+		}
+		// image
+		if strings.HasPrefix(lnTrim, "![") {
+			pushParagraph()
+			// naive parse: ![alt](url)
+			endAlt := strings.Index(lnTrim, "](")
+			endUrl := strings.LastIndex(lnTrim, ")")
+			if endAlt > 0 && endUrl > endAlt {
+				alt := lnTrim[2:endAlt]
+				url := lnTrim[endAlt+2 : endUrl]
+				doc.Body = append(doc.Body, Image{URL: url, Alt: alt})
+				continue
+			}
+		}
+		// otherwise accumulate paragraph
+		paraBuf = append(paraBuf, lnTrim)
+	}
+	pushParagraph()
+	return &doc, nil
 }

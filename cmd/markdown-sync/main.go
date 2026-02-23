@@ -213,5 +213,20 @@ func importToWriter(authMode, localFile, docID string, diffOnly bool, stdout io.
 		return nil
 	}
 
-	return fmt.Errorf("import apply not implemented")
+	// Apply: parse local markdown into a Document and send to adapter.
+	parsed, err := md.FromMarkdown(string(localBytes))
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to parse local markdown: %v\n", err)
+		return err
+	}
+	d, ok := parsed.(*md.Document)
+	if !ok {
+		return fmt.Errorf("parsed markdown returned unexpected type")
+	}
+	if err := md.ApplyDocument(authMode, docID, d); err != nil {
+		fmt.Fprintf(stderr, "failed to apply document: %v\n", err)
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "applied %d body elements to %s\n", len(d.Body), docID)
+	return err
 }

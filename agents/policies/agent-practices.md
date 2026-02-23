@@ -10,6 +10,7 @@ Core principles
 
 Operational rules
 - Work on feature branches by default. If working on `main`, pause and ask a human to commit/push.
+- Agents must not run or request git commands that perform commits (`git commit`, `git push`). When a commit is required, the agent must provide a proposed commit message, a brief summary of changes, and a suggested branch name; then ask a human to perform the commit.
 - Include `go.mod` and `go.sum` changes in the same feature branch as code changes.
 - For dependency upgrades, include upgrade rationale and compatibility notes in `agents/references/dependencies.md`.
 - If a change affects developer workflow (Makefile, devcontainer, CI), include migration notes in `docs/` and notify maintainers.

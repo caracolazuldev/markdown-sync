@@ -4,4 +4,4 @@ skills: agents/skills
 workflows: agents/workflows
 references: agents/references
 policies: agents/policies
-scripts: agents/scripts
+

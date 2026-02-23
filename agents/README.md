@@ -9,14 +9,19 @@ This folder contains curated resources for AI coding agents used by the project.
 See `MANIFEST.md` for discovery rules.
 
 
-Automation policy and guard
+
+Automation policy and commit behavior
+------------------------------------
+Automation must not commit or push directly to `main`. See `agents/policies/automation-policy.md` for the project policy.
+
+Assistant commit behavior
 -------------------------
-Automation must not commit or push directly to `main`. See `agents/policies/automation-policy.md` for the project policy and `agents/scripts/guard_commit.sh` for a local guard script.
+- Assistants must not run or request git commands that perform commits (for example `git commit`, `git push`, or wrappers that run them).
+- Instead, when changes are ready, the assistant must always pause and ask a human to make the commit. The assistant should provide:
+	- A proposed commit message (brief, imperative style),
+	- A short summary of the changes staged or to be committed,
+	- Any suggested branch name (e.g., `feature/<short-desc>`) if a feature branch is appropriate.
+- If the assistant is operating on a protected branch (for example, `main`) and no feature branch exists, the assistant must not perform or request a commit; it must ask the human to create the feature branch and perform the commit.
 
-Behavior expectation for assistants
-----------------------------------
-- Prefer creating and working on a feature branch for any changes.
-- If the assistant is operating while `HEAD` is on a protected branch (for example, `main`) and a feature branch was not created, the assistant must pause and ask a human to review and perform the commit/push/merge unless explicitly instructed to create and use a feature branch.
-
-This ensures automation does not make irreversible changes to protected branches without a human in the loop.
+This ensures humans make commits while still enabling the assistant to prepare and propose accurate commit messages.
 

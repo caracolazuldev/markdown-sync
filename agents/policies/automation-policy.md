@@ -10,10 +10,19 @@ Effective rules for automated tools and AI assistants operating on this reposito
 - Automation must run tests (`make test`) and static analysis (`staticcheck`) locally before opening a PR or requesting a human to commit on a protected branch.
 - Automation must not push or merge without an explicit human approval recorded in the PR.
 
+
 Enforcement aid:
 
-- Use the guard script at `agents/scripts/guard_commit.sh` to prevent accidental commits on `main`.
 - CI should enforce these policies by refusing merges that bypass PR checks.
+
+Agent commit behavior (mandatory)
+
+- Agents must not run or request git commands that perform commits (for example `git commit`, `git push`, or wrappers that run them).
+- When changes are ready to be committed, the agent must always ask a human to make the commit and provide:
+	- A proposed commit message (imperative style),
+	- A short summary of staged or proposed changes,
+	- A suggested branch name (if creating a feature branch is appropriate).
+- If the agent is working with `HEAD` on a protected branch (e.g., `main`) and no feature branch exists, the agent must not attempt to create or commit; instead it must ask the human to create a feature branch and perform the commit.
 
 If you are implementing automation, follow these rules and include a short note in the PR describing the automation's purpose and the human approver.
 

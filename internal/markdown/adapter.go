@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
 	docs "google.golang.org/api/docs/v1"
@@ -126,7 +128,11 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		return currIndex - length
 	}
 
-	for _, e := range doc.Body {
+	// helper to detect numbered list prefix like "1. "
+	numRe := regexp.MustCompile(`^\d+\.\s+`)
+
+	for i := 0; i < len(doc.Body); i++ {
+		e := doc.Body[i]
 		switch v := e.(type) {
 		case Heading:
 			// Insert heading text + newline
@@ -154,21 +160,63 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 				Fields:         "namedStyleType",
 			}})
 		case Paragraph:
-			appendInsert(v.Text + "\n")
+			txt := v.Text
+			// Detect bullet list sequences
+			if strings.HasPrefix(txt, "- ") {
+				// collect consecutive bullet paragraphs
+				start := appendInsert(strings.TrimPrefix(txt, "- ") + "\n")
+				for j := i + 1; j < len(doc.Body); j++ {
+					if p, ok := doc.Body[j].(Paragraph); ok && strings.HasPrefix(p.Text, "- ") {
+						appendInsert(strings.TrimPrefix(p.Text, "- ") + "\n")
+						i = j
+					} else {
+						break
+					}
+				}
+				end := currIndex
+				reqs = append(reqs, &docs.Request{CreateParagraphBullets: &docs.CreateParagraphBulletsRequest{
+					Range:        &docs.Range{StartIndex: start, EndIndex: end},
+					BulletPreset: "BULLET_DISC_CIRCLE",
+				}})
+			} else if numRe.MatchString(txt) {
+				// numbered list sequence
+				// strip numeric prefix
+				stripped := numRe.ReplaceAllString(txt, "")
+				start := appendInsert(stripped + "\n")
+				for j := i + 1; j < len(doc.Body); j++ {
+					if p, ok := doc.Body[j].(Paragraph); ok && numRe.MatchString(p.Text) {
+						stripped := numRe.ReplaceAllString(p.Text, "")
+						appendInsert(stripped + "\n")
+						i = j
+					} else {
+						break
+					}
+				}
+				end := currIndex
+				reqs = append(reqs, &docs.Request{CreateParagraphBullets: &docs.CreateParagraphBulletsRequest{
+					Range:        &docs.Range{StartIndex: start, EndIndex: end},
+					BulletPreset: "NUMBERED_DECIMAL",
+				}})
+			} else {
+				appendInsert(txt + "\n")
+			}
 		case CodeBlock:
-			appendInsert("```" + v.Language + "\n" + v.Code + "\n```\n")
+			start := appendInsert(v.Code + "\n")
+			end := currIndex
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: start, EndIndex: end},
+				TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
+				Fields:    "weightedFontFamily",
+			}})
+			appendInsert("\n")
 		case Image:
-			// Insert a placeholder text and then an InsertInlineImage request. The
-			// InsertInlineImage requires a URI and an object with the location.
-			// We'll insert a newline as anchor and then insert the image at that index.
-			// Insert a newline to reserve space
 			start := appendInsert("\n")
 			reqs = append(reqs, &docs.Request{InsertInlineImage: &docs.InsertInlineImageRequest{
 				Uri:      v.URL,
 				Location: &docs.Location{Index: start},
 			}})
 		default:
-			// ignore unknown elements
+			// ignore
 		}
 	}
 	return reqs, nil

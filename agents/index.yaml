@@ -3,3 +3,5 @@ description: "Index of AI agent resources (skills, workflows, references)"
 skills: agents/skills
 workflows: agents/workflows
 references: agents/references
+policies: agents/policies
+scripts: agents/scripts

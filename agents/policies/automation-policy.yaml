@@ -1,0 +1,18 @@
+prohibit_direct_push_to:
+  - main
+  - master
+# Prefer feature branches, but allow workflows where the assistant asks the human
+# to commit on protected branches if a feature branch was not created.
+require_feature_branch: false
+branch_name_patterns:
+  - '^feature/'
+  - '^fix/'
+  - '^chore/'
+on_protected_branch_ask_human: true
+enforcement_script: agents/scripts/guard_commit.sh
+pre_commit_checks:
+  - name: test
+    cmd: make test
+  - name: staticcheck
+    cmd: staticcheck ./...
+approval_required: true

@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	md "github.com/caracolazuldev/markdown-sync/internal/markdown"
 )
@@ -13,6 +14,47 @@ import (
 func usage() {
 	fmt.Fprintf(os.Stderr, "markdown-sync: simple CLI\n")
 	fmt.Fprintf(os.Stderr, "Usage:\n  markdown-sync <command> [flags]\nCommands: export, import, preview, list\n")
+}
+
+// previewToWriter renders markdown and writes at most maxLines to stdout.
+// If maxLines <= 0, the entire document is written.
+func previewToWriter(authMode, docID string, maxLines int, stdout io.Writer, stderr io.Writer) error {
+	docModel, err := md.FetchDocument(authMode, docID)
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to fetch doc: %v\n", err)
+		return err
+	}
+	markdown, err := md.DocumentToMarkdown(docModel)
+	if err != nil {
+		fmt.Fprintf(stderr, "conversion error: %v\n", err)
+		return err
+	}
+	if maxLines <= 0 {
+		_, err := io.WriteString(stdout, markdown)
+		return err
+	}
+	// strip YAML frontmatter for preview counting if present
+	body := markdown
+	if strings.HasPrefix(markdown, "---\n") {
+		if idx := strings.Index(markdown, "\n---\n"); idx != -1 {
+			body = markdown[idx+len("\n---\n"):]
+		}
+	}
+	// write up to maxLines lines from the body
+	lines := strings.SplitN(body, "\n", maxLines+1)
+	output := strings.Join(lines[:min(len(lines), maxLines)], "\n")
+	if len(lines) > maxLines {
+		output += "\n\n... (truncated)"
+	}
+	_, err = io.WriteString(stdout, output+"\n")
+	return err
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func main() {

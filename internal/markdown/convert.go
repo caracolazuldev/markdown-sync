@@ -59,16 +59,18 @@ func DocumentToMarkdown(doc *Document) (string, error) {
             sb.WriteString("\n\n")
         case CodeBlock:
             sb.WriteString("```")
-            sb.WriteString(v.Language)
+            if v.Language != "" {
+                sb.WriteString(v.Language)
+            }
             sb.WriteString("\n")
             sb.WriteString(v.Code)
-            sb.WriteString("\n````\n\n")
+            sb.WriteString("\n```\n\n")
         case Image:
             sb.WriteString("![")
             sb.WriteString(escapeString(v.Alt))
-            sb.WriteString("]( ")
+            sb.WriteString("](")
             sb.WriteString(v.URL)
-            sb.WriteString(" )\n\n")
+            sb.WriteString(")\n\n")
         default:
             // unknown element, ignore
         }

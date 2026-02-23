@@ -16,9 +16,14 @@ func TestImportApplySucceeds(t *testing.T) {
 		t.Fatalf("write local file: %v", err)
 	}
 
+	// Require service credentials for apply; skip otherwise to avoid
+	// attempting network calls in unit test environments.
+	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" {
+		t.Skip("skipping apply test; set GOOGLE_APPLICATION_CREDENTIALS to enable")
+	}
 	var errb bytes.Buffer
 	var out bytes.Buffer
-	if err := importToWriter("oauth", outPath, "doc-1", false, &out, &errb); err != nil {
+	if err := importToWriter("service", outPath, "doc-1", false, &out, &errb); err != nil {
 		t.Fatalf("importToWriter apply failed: %v, stderr=%s", err, errb.String())
 	}
 }

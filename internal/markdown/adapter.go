@@ -1,6 +1,14 @@
 package markdown
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"os"
+
+	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
+	docs "google.golang.org/api/docs/v1"
+	"google.golang.org/api/option"
+)
 
 // FetchDocument fetches a document given an auth mode and a document ID.
 // This is a stub implementation returning a small sample Document. The
@@ -44,6 +52,63 @@ func ApplyDocument(authMode, docID string, doc *Document) error {
 	if docID == "" {
 		return fmt.Errorf("missing doc id")
 	}
-	// no-op for stub
+	// Prefer service account credentials (GOOGLE_APPLICATION_CREDENTIALS)
+	creds := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	ctx := context.Background()
+	client, err := gauth.NewHTTPClient(ctx, "service", creds)
+	if err != nil {
+		return fmt.Errorf("creating google http client: %w", err)
+	}
+	svc, err := docs.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return fmt.Errorf("creating docs service: %w", err)
+	}
+
+	// Convert the provided Document to markdown text and write it into the
+	// document body as plain text. This is a pragmatic, minimal update for
+	// integration tests; a richer mapping to structural Google Docs elements
+	// can be implemented later.
+	mdText, err := DocumentToMarkdown(doc)
+	if err != nil {
+		return fmt.Errorf("convert doc to markdown: %w", err)
+	}
+
+	// Fetch remote document to determine current content end index.
+	remote, err := svc.Documents.Get(docID).Do()
+	if err != nil {
+		return fmt.Errorf("fetching remote document: %w", err)
+	}
+	endIndex := int64(1)
+	if remote.Body != nil && len(remote.Body.Content) > 0 {
+		// Use the EndIndex of the last content element if present
+		last := remote.Body.Content[len(remote.Body.Content)-1]
+		if last.EndIndex != 0 {
+			endIndex = last.EndIndex
+		}
+	}
+	// The Docs API disallows delete ranges that include the final trailing
+	// newline character. If endIndex points to the document end, reduce it by
+	// one so the delete range doesn't include that final newline.
+	if endIndex > 1 {
+		endIndex = endIndex - 1
+	}
+
+	// Build batch requests: delete existing body content (from 1..endIndex)
+	// then insert the new markdown text at index 1.
+	requests := []*docs.Request{
+		{
+			DeleteContentRange: &docs.DeleteContentRangeRequest{
+				Range: &docs.Range{StartIndex: 1, EndIndex: endIndex},
+			},
+		},
+		{
+			InsertText: &docs.InsertTextRequest{Text: mdText, Location: &docs.Location{Index: 1}},
+		},
+	}
+
+	_, err = svc.Documents.BatchUpdate(docID, &docs.BatchUpdateDocumentRequest{Requests: requests}).Do()
+	if err != nil {
+		return fmt.Errorf("batch update failed: %w", err)
+	}
 	return nil
 }

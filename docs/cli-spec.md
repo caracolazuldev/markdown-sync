@@ -1,8 +1,8 @@
-# CLI Specification — markdown-sync
+# CLI Specification — gdocs-markdown-sync
 
 Overview
 --------
-This document specifies the initial CLI surface for `markdown-sync` (v0.1).
+This document specifies the initial CLI surface for `gdocs-markdown-sync` (v0.1).
 
 Top-level commands
 ------------------
@@ -26,15 +26,15 @@ Examples
 --------
 Export a doc to local folder:
 
-markdown-sync export --doc 1a2B3cdE --out ./docs
+gdocs-markdown-sync export --doc 1a2B3cdE --out ./docs
 
 Preview a doc as markdown:
 
-markdown-sync preview --doc 1a2B3cdE
+gdocs-markdown-sync preview --doc 1a2B3cdE
 
 Import a file into an existing doc (service account):
 
-markdown-sync import --file ./notes/article.md --doc 1a2B3cdE --auth service --credentials ./sa.json --overwrite
+gdocs-markdown-sync import --file ./notes/article.md --doc 1a2B3cdE --auth service --credentials ./sa.json --overwrite
 
 Behavior notes
 --------------

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
+	gauth "github.com/caracolazuldev/gdocs-markdown-sync/internal/google"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"

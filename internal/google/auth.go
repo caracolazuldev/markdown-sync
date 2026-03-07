@@ -79,7 +79,7 @@ func tokenCacheFile() string {
 		home := os.Getenv("HOME")
 		cfg = filepath.Join(home, ".config")
 	}
-	dir := filepath.Join(cfg, "markdown-sync")
+	dir := filepath.Join(cfg, "gdocs-markdown-sync")
 	_ = os.MkdirAll(dir, 0o700)
 	return filepath.Join(dir, "tokens.json")
 }

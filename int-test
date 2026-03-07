@@ -1,1 +1,1 @@
-go test -tags=integration ./cmd/markdown-sync -run TestApplyDocumentIntegration
+go test -tags=integration ./cmd/gdocs-markdown-sync -run TestApplyDocumentIntegration

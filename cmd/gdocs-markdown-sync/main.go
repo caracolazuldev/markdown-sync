@@ -8,12 +8,12 @@ import (
 	"os"
 	"strings"
 
-	md "github.com/caracolazuldev/markdown-sync/internal/markdown"
+	md "github.com/caracolazuldev/gdocs-markdown-sync/internal/markdown"
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "markdown-sync: simple CLI\n")
-	fmt.Fprintf(os.Stderr, "Usage:\n  markdown-sync <command> [flags]\nCommands: export, import, preview, list\n")
+	fmt.Fprintf(os.Stderr, "gdocs-markdown-sync: simple CLI\n")
+	fmt.Fprintf(os.Stderr, "Usage:\n  gdocs-markdown-sync <command> [flags]\nCommands: export, import, preview, list\n")
 }
 
 // previewToWriter renders markdown and writes at most maxLines to stdout.

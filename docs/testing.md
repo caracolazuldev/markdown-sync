@@ -1,4 +1,4 @@
-# Testing — markdown-sync
+# Testing — gdocs-markdown-sync
 
 Unit tests
 ----------

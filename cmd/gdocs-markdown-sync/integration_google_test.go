@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
+	gauth "github.com/caracolazuldev/gdocs-markdown-sync/internal/google"
 	docs "google.golang.org/api/docs/v1"
 	"google.golang.org/api/option"
 )

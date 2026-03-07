@@ -1,4 +1,4 @@
-APP_NAME := markdown-sync
+APP_NAME := gdocs-markdown-sync
 BINDIR := bin
 DISTDIR := dist
 
@@ -8,7 +8,7 @@ all: build
 
 build:
 	@mkdir -p $(BINDIR)
-	go build -v -o $(BINDIR)/$(APP_NAME) ./cmd/markdown-sync
+	go build -v -o $(BINDIR)/$(APP_NAME) ./cmd/gdocs-markdown-sync
 
 test:
 	go test ./...
@@ -35,7 +35,7 @@ docker-image:
 
 cross:
 	@mkdir -p $(DISTDIR)
-	GOOS=linux GOARCH=amd64 go build -v -o $(DISTDIR)/$(APP_NAME)-linux-amd64 ./cmd/markdown-sync
+	GOOS=linux GOARCH=amd64 go build -v -o $(DISTDIR)/$(APP_NAME)-linux-amd64 ./cmd/gdocs-markdown-sync
 
 clean:
 	rm -rf $(BINDIR) $(DISTDIR)

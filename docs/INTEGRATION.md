@@ -33,7 +33,7 @@ export INTEGRATION_DOC_ID=1aB2cD3EfGhiJkLmnopQRsTUvWXyz
 Run the single integration test:
 
 ```
-go test -tags=integration ./cmd/markdown-sync -run TestApplyDocumentIntegration
+go test -tags=integration ./cmd/gdocs-markdown-sync -run TestApplyDocumentIntegration
 ```
 
 5. Run the CLI against the doc (example)
@@ -41,8 +41,8 @@ go test -tags=integration ./cmd/markdown-sync -run TestApplyDocumentIntegration
 Export a markdown file and apply it:
 
 ```
-./cmd/markdown-sync export -auth service -doc $INTEGRATION_DOC_ID -out /tmp/out.md
-./cmd/markdown-sync import -auth service -file /path/to/local.md -doc $INTEGRATION_DOC_ID
+./cmd/gdocs-markdown-sync export -auth service -doc $INTEGRATION_DOC_ID -out /tmp/out.md
+./cmd/gdocs-markdown-sync import -auth service -file /path/to/local.md -doc $INTEGRATION_DOC_ID
 ```
 
 Security notes

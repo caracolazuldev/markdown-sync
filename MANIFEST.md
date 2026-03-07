@@ -1,4 +1,4 @@
-# MANIFEST — markdown-sync
+# MANIFEST — gdocs-markdown-sync
 
 Version: 0.1.0
 Status: draft
@@ -34,10 +34,10 @@ Non-functional Requirements
 - Secure handling of credentials: never store unencrypted keys in repo; follow Google best-practices.
 - MIT license for repository.
 
-Technical Requirements
-----------------------
+- Technical Requirements
+- ----------------------
 - Language: Go (minimum 1.21).
-- Module: `github.com/caracolazuldev/markdown-sync` (placeholder).
+- Module: `github.com/caracolazuldev/gdocs-markdown-sync` (placeholder).
 - CLI commands: `export`, `import`, `preview`, `list` (see docs/cli-spec.md).
 - Auth: support both OAuth2 user-consent and service account flows (see docs/auth.md).
 - Mapping rules: documented in docs/mapping.md (headings, paragraphs, code blocks, images, tables, links, frontmatter).

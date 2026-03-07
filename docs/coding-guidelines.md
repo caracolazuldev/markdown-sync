@@ -1,4 +1,4 @@
-# Coding Guidelines — markdown-sync
+# Coding Guidelines — gdocs-markdown-sync
 
 Go conventions
 --------------

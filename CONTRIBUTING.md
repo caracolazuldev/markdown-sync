@@ -3,7 +3,7 @@
 Thank you for contributing to Markdown Sync. This guide covers repository layout, technology stack, development environment setup, and the expected developer workflow.
 
 Repository layout
-- `cmd/` — CLI entrypoint (packages for the `markdown-sync` binary).
+- `cmd/` — CLI entrypoint (packages for the `gdocs-markdown-sync` binary).
 - `internal/cli` — CLI helpers and argument parsing.
 - `internal/google` — Google auth helpers and integrations.
 - `internal/markdown` — Markdown conversion utilities.

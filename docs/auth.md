@@ -1,4 +1,4 @@
-# Authentication — markdown-sync
+# Authentication — gdocs-markdown-sync
 
 Supported flows
 ----------------
@@ -7,7 +7,7 @@ Supported flows
 
 Credentials & storage
 ---------------------
-- Local tokens: stored at `$XDG_CONFIG_HOME/markdown-sync/tokens.json` with restricted file permissions.
+- Local tokens: stored at `$XDG_CONFIG_HOME/gdocs-markdown-sync/tokens.json` with restricted file permissions.
 - Service account: recommended to use `GOOGLE_APPLICATION_CREDENTIALS` or `--credentials` cli flag.
 
 Scopes

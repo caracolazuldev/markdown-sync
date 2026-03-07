@@ -1,12 +1,12 @@
-# Architecture — markdown-sync
+# Architecture — gdocs-markdown-sync
 
 Summary
 -------
-`markdown-sync` is a small CLI with a modular architecture to keep Google API concerns, markdown transformation, and storage separate.
+`gdocs-markdown-sync` is a small CLI with a modular architecture to keep Google API concerns, markdown transformation, and storage separate.
 
 Components
 ----------
-- CLI (`cmd/markdown-sync`): argument parsing, UX, and orchestration.
+- CLI (`cmd/gdocs-markdown-sync`): argument parsing, UX, and orchestration.
 - Auth Layer (`internal/google`): handle OAuth2 and service-account credential flows and provide an authenticated HTTP client.
 - Google Docs Adapter (`internal/google/docs_adapter.go`): thin wrapper around the Google Docs REST API; handles fetch/patch operations and retries.
 - Markdown Engine (`internal/markdown`): deterministic conversion rules between Docs structured content and Markdown text (+asset extraction).

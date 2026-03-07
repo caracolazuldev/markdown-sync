@@ -1,4 +1,4 @@
-# Mapping Rules — markdown-sync
+# Mapping Rules — gdocs-markdown-sync
 
 Scope
 -----

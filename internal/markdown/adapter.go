@@ -241,12 +241,54 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		case HorizontalRule:
 			appendInsert("──────────\n")
 		case Table:
-			appendInsert(tableToMarkdown(v) + "\n")
+			if canInsertNativeTable(v) {
+				rows := int64(len(v.Rows))
+				if len(v.Header) > 0 {
+					rows++
+				}
+				cols := int64(len(v.Header))
+				if cols == 0 && len(v.Rows) > 0 {
+					cols = int64(len(v.Rows[0]))
+				}
+				reqs = append(reqs, &docs.Request{InsertTable: &docs.InsertTableRequest{
+					Rows:     rows,
+					Columns:  cols,
+					Location: &docs.Location{Index: currIndex},
+				}})
+				// Table indices are complex and depend on server-side model expansion,
+				// so we conservatively advance by one to keep subsequent non-table
+				// inserts stable in this request sequence.
+				currIndex += 1
+			} else {
+				appendInsert(tableToMarkdown(v) + "\n")
+			}
 		default:
 			// ignore
 		}
 	}
 	return reqs, nil
+}
+
+func canInsertNativeTable(t Table) bool {
+	cols := len(t.Header)
+	if cols == 0 {
+		if len(t.Rows) == 0 {
+			return false
+		}
+		cols = len(t.Rows[0])
+	}
+	if cols == 0 {
+		return false
+	}
+	for _, row := range t.Rows {
+		if len(row) != cols {
+			return false
+		}
+	}
+	if len(t.Header) > 0 && len(t.Header) != cols {
+		return false
+	}
+	return true
 }
 
 type inlineSpan struct {

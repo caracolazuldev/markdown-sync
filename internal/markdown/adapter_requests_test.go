@@ -81,7 +81,7 @@ func TestBuildDocsRequests_QuoteAndRule(t *testing.T) {
 	}
 }
 
-func TestBuildDocsRequests_TableFallbackInsert(t *testing.T) {
+func TestBuildDocsRequests_TableNativeInsert(t *testing.T) {
 	doc := &Document{Body: []Element{
 		Table{Header: []string{"Name", "Value"}, Rows: [][]string{{"A", "1"}}},
 	}}
@@ -93,13 +93,35 @@ func TestBuildDocsRequests_TableFallbackInsert(t *testing.T) {
 
 	var found bool
 	for _, r := range reqs {
-		if r.InsertText != nil && r.InsertText.Text != "" && r.InsertText.Text[0] == '|' {
+		if r.InsertTable != nil {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected inserted markdown table text, req kinds=%v", summarizeReqKinds(reqs))
+		t.Fatalf("expected native InsertTable request, req kinds=%v", summarizeReqKinds(reqs))
+	}
+}
+
+func TestBuildDocsRequests_TableFallbackInsertForIrregularRows(t *testing.T) {
+	doc := &Document{Body: []Element{
+		Table{Header: []string{"Name", "Value"}, Rows: [][]string{{"A"}}},
+	}}
+
+	reqs, err := buildDocsRequests("", doc)
+	if err != nil {
+		t.Fatalf("buildDocsRequests error: %v", err)
+	}
+
+	var hasFallbackInsert bool
+	for _, r := range reqs {
+		if r.InsertText != nil && r.InsertText.Text != "" && r.InsertText.Text[0] == '|' {
+			hasFallbackInsert = true
+			break
+		}
+	}
+	if !hasFallbackInsert {
+		t.Fatalf("expected markdown fallback insert for irregular table, req kinds=%v", summarizeReqKinds(reqs))
 	}
 }
 
@@ -117,6 +139,8 @@ func summarizeReqKinds(reqs []*docs.Request) []string {
 			out = append(out, "CreateParagraphBullets")
 		case r.InsertInlineImage != nil:
 			out = append(out, "InsertInlineImage")
+		case r.InsertTable != nil:
+			out = append(out, "InsertTable")
 		default:
 			out = append(out, "Other")
 		}

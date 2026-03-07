@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
@@ -110,6 +111,23 @@ func ApplyDocument(authMode, docID string, doc *Document) error {
 	_, err = svc.Documents.BatchUpdate(docID, &docs.BatchUpdateDocumentRequest{Requests: all}).Do()
 	if err != nil {
 		return fmt.Errorf("batch update failed: %w", err)
+	}
+
+	// Second pass: if native tables were inserted, populate cell text now that
+	// the API has created table/cell indices.
+	nativeTables := nativeTablesFromDocument(doc)
+	if len(nativeTables) > 0 {
+		updated, err := svc.Documents.Get(docID).Do()
+		if err != nil {
+			return fmt.Errorf("fetching updated document for table fill: %w", err)
+		}
+		fillReqs := buildNativeTableFillRequests(nativeTables, updated)
+		if len(fillReqs) > 0 {
+			_, err = svc.Documents.BatchUpdate(docID, &docs.BatchUpdateDocumentRequest{Requests: fillReqs}).Do()
+			if err != nil {
+				return fmt.Errorf("table fill batch update failed: %w", err)
+			}
+		}
 	}
 	return nil
 }
@@ -289,6 +307,132 @@ func canInsertNativeTable(t Table) bool {
 		return false
 	}
 	return true
+}
+
+func nativeTablesFromDocument(doc *Document) []Table {
+	var out []Table
+	if doc == nil {
+		return out
+	}
+	for _, e := range doc.Body {
+		if t, ok := e.(Table); ok && canInsertNativeTable(t) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func tableTextMatrix(t Table) [][]string {
+	var matrix [][]string
+	if len(t.Header) > 0 {
+		matrix = append(matrix, append([]string(nil), t.Header...))
+	}
+	for _, r := range t.Rows {
+		matrix = append(matrix, append([]string(nil), r...))
+	}
+	return matrix
+}
+
+func buildNativeTableFillRequests(modelTables []Table, remote *docs.Document) []*docs.Request {
+	if remote == nil || remote.Body == nil {
+		return nil
+	}
+	var remoteTables []*docs.Table
+	for _, se := range remote.Body.Content {
+		if se != nil && se.Table != nil {
+			remoteTables = append(remoteTables, se.Table)
+		}
+	}
+	tableCount := len(modelTables)
+	if len(remoteTables) < tableCount {
+		tableCount = len(remoteTables)
+	}
+
+	type indexedReq struct {
+		index int64
+		reqs  []*docs.Request
+	}
+	var pending []indexedReq
+
+	for i := 0; i < tableCount; i++ {
+		modelMatrix := tableTextMatrix(modelTables[i])
+		remoteTable := remoteTables[i]
+		rowCount := len(modelMatrix)
+		if len(remoteTable.TableRows) < rowCount {
+			rowCount = len(remoteTable.TableRows)
+		}
+		for r := 0; r < rowCount; r++ {
+			colCount := len(modelMatrix[r])
+			if len(remoteTable.TableRows[r].TableCells) < colCount {
+				colCount = len(remoteTable.TableRows[r].TableCells)
+			}
+			for c := 0; c < colCount; c++ {
+				cellText := modelMatrix[r][c]
+				if cellText == "" {
+					continue
+				}
+				cell := remoteTable.TableRows[r].TableCells[c]
+				idx := cell.StartIndex + 1
+				clean, spans := parseInline(cellText)
+				if clean == "" {
+					continue
+				}
+				cellReqs := []*docs.Request{{
+					InsertText: &docs.InsertTextRequest{
+						Location: &docs.Location{Index: idx},
+						Text:     clean,
+					},
+				}}
+				for _, sp := range spans {
+					start := idx + int64(sp.Offset)
+					end := start + int64(sp.Length)
+					switch sp.Kind {
+					case "bold":
+						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: start, EndIndex: end},
+							TextStyle: &docs.TextStyle{Bold: true},
+							Fields:    "bold",
+						}})
+					case "italic":
+						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: start, EndIndex: end},
+							TextStyle: &docs.TextStyle{Italic: true},
+							Fields:    "italic",
+						}})
+					case "code":
+						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: start, EndIndex: end},
+							TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
+							Fields:    "weightedFontFamily",
+						}})
+					case "link":
+						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+							Range:     &docs.Range{StartIndex: start, EndIndex: end},
+							TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
+							Fields:    "link",
+						}})
+					}
+				}
+				pending = append(pending, indexedReq{
+					index: idx,
+					reqs:  cellReqs,
+				})
+			}
+		}
+	}
+
+	// Apply inserts from highest index to lowest so earlier inserts don't shift
+	// positions for later ones.
+	sort.Slice(pending, func(i, j int) bool { return pending[i].index > pending[j].index })
+	var total int
+	for _, p := range pending {
+		total += len(p.reqs)
+	}
+	requests := make([]*docs.Request, 0, total)
+	for _, p := range pending {
+		requests = append(requests, p.reqs...)
+	}
+	return requests
 }
 
 type inlineSpan struct {

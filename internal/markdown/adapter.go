@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 
 	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 	docs "google.golang.org/api/docs/v1"
 	"google.golang.org/api/option"
 )
@@ -263,77 +265,79 @@ type inlineSpan struct {
 	Data   string // for link: URL
 }
 
-// parseInline returns the cleaned text with markers removed and a set of
-// spans describing formatting to apply.
+type inlineStyleState struct {
+	bold   bool
+	italic bool
+	code   bool
+	link   string
+}
+
+// parseInline parses inline markdown using Goldmark and returns cleaned text
+// plus style spans to apply in Google Docs.
 func parseInline(s string) (string, []inlineSpan) {
+	parser := goldmark.DefaultParser()
+	root := parser.Parse(text.NewReader([]byte(s)))
+	source := []byte(s)
+	var out strings.Builder
 	var spans []inlineSpan
-	// patterns
-	linkRe := regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
-	codeRe := regexp.MustCompile("`([^`]+)`")
-	boldRe := regexp.MustCompile(`\*\*(.+?)\*\*`)
-	italicRe := regexp.MustCompile(`\*(.+?)\*`)
 
-	type match struct {
-		start      int
-		end        int
-		innerStart int
-		innerEnd   int
-		kind       string
-		data       string
+	addText := func(val string, st inlineStyleState) {
+		if val == "" {
+			return
+		}
+		off := out.Len()
+		out.WriteString(val)
+		length := len(val)
+		if st.bold {
+			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "bold"})
+		}
+		if st.italic {
+			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "italic"})
+		}
+		if st.code {
+			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "code"})
+		}
+		if st.link != "" {
+			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "link", Data: st.link})
+		}
 	}
-	var matches []match
 
-	// helper to collect matches for a regex (overall and first subgroup)
-	collect := func(r *regexp.Regexp, kind string) {
-		locs := r.FindAllStringSubmatchIndex(s, -1)
-		for _, l := range locs {
-			if len(l) >= 4 {
-				matches = append(matches, match{start: l[0], end: l[1], innerStart: l[2], innerEnd: l[3], kind: kind})
-				if kind == "link" && len(l) >= 6 {
-					// subgroup 2 is URL
-					// find indices for subgroup 2
-					// regexp package gives pairs sequentially; subgroup 2 indices at positions 4/5
-					if len(l) >= 6 {
-						matches[len(matches)-1].data = s[l[4]:l[5]]
-					}
+	var walkInline func(n ast.Node, st inlineStyleState)
+	walkInline = func(n ast.Node, st inlineStyleState) {
+		for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+			switch v := c.(type) {
+			case *ast.Text:
+				addText(string(v.Segment.Value(source)), st)
+				if v.SoftLineBreak() || v.HardLineBreak() {
+					addText(" ", st)
 				}
+			case *ast.String:
+				addText(string(v.Value), st)
+			case *ast.Emphasis:
+				next := st
+				if v.Level >= 2 {
+					next.bold = true
+				} else {
+					next.italic = true
+				}
+				walkInline(v, next)
+			case *ast.CodeSpan:
+				next := st
+				next.code = true
+				addText(string(v.Text(source)), next)
+			case *ast.Link:
+				next := st
+				next.link = string(v.Destination)
+				walkInline(v, next)
+			default:
+				walkInline(v, st)
 			}
 		}
 	}
 
-	collect(linkRe, "link")
-	collect(codeRe, "code")
-	collect(boldRe, "bold")
-	collect(italicRe, "italic")
-
-	// sort matches by start
-	sort.Slice(matches, func(i, j int) bool { return matches[i].start < matches[j].start })
-
-	// filter overlapping: keep non-overlapping in order
-	var kept []match
-	lastEnd := -1
-	for _, m := range matches {
-		if m.start >= lastEnd {
-			kept = append(kept, m)
-			lastEnd = m.end
-		}
+	for n := root.FirstChild(); n != nil; n = n.NextSibling() {
+		walkInline(n, inlineStyleState{})
 	}
 
-	var out strings.Builder
-	pos := 0
-	for _, m := range kept {
-		if m.start > pos {
-			out.WriteString(s[pos:m.start])
-		}
-		inner := s[m.innerStart:m.innerEnd]
-		// record offset in output
-		off := out.Len()
-		out.WriteString(inner)
-		spans = append(spans, inlineSpan{Offset: off, Length: len(inner), Kind: m.kind, Data: m.data})
-		pos = m.end
-	}
-	if pos < len(s) {
-		out.WriteString(s[pos:])
-	}
 	return out.String(), spans
 }

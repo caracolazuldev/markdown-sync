@@ -8,3 +8,5 @@ dist/
 *.exe
 *.so
 *.dll
+plan-*.prompt.md
+.env

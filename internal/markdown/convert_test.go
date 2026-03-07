@@ -222,3 +222,38 @@ func TestDocumentToMarkdown_QuoteAndRule(t *testing.T) {
 		t.Fatalf("missing horizontal rule markdown: %q", got)
 	}
 }
+
+func TestFromMarkdown_Table(t *testing.T) {
+	input := "| Name | Value |\n| --- | --- |\n| A | 1 |\n| B | 2 |\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	if len(doc.Body) != 1 {
+		t.Fatalf("expected 1 body element, got %d", len(doc.Body))
+	}
+	tbl, ok := doc.Body[0].(Table)
+	if !ok {
+		t.Fatalf("expected Table element, got %#v", doc.Body[0])
+	}
+	if len(tbl.Header) != 2 || tbl.Header[0] != "Name" || tbl.Header[1] != "Value" {
+		t.Fatalf("unexpected table header: %#v", tbl.Header)
+	}
+	if len(tbl.Rows) != 2 || len(tbl.Rows[0]) != 2 || tbl.Rows[0][0] != "A" || tbl.Rows[1][1] != "2" {
+		t.Fatalf("unexpected table rows: %#v", tbl.Rows)
+	}
+}
+
+func TestDocumentToMarkdown_Table(t *testing.T) {
+	doc := &Document{Body: []Element{
+		Table{Header: []string{"Name", "Value"}, Rows: [][]string{{"A", "1"}}},
+	}}
+	got, err := DocumentToMarkdown(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "| Name | Value |") || !strings.Contains(got, "| A | 1 |") {
+		t.Fatalf("unexpected table markdown: %q", got)
+	}
+}

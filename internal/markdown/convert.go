@@ -7,6 +7,8 @@ import (
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/text"
 )
 
@@ -66,6 +68,13 @@ type HorizontalRule struct{}
 
 func (HorizontalRule) element() {}
 
+type Table struct {
+	Header []string
+	Rows   [][]string
+}
+
+func (Table) element() {}
+
 // DocumentToMarkdown converts a Document into markdown text. This function is
 // intentionally small and focuses on predictable, testable mappings used by
 // the rest of the project.
@@ -124,6 +133,12 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			sb.WriteString("\n\n")
 		case HorizontalRule:
 			sb.WriteString("---\n\n")
+		case Table:
+			tableMD := tableToMarkdown(v)
+			if tableMD != "" {
+				sb.WriteString(tableMD)
+				sb.WriteString("\n\n")
+			}
 		default:
 			// unknown element, ignore
 		}
@@ -152,7 +167,8 @@ func ToMarkdown(doc interface{}) (string, error) {
 // workflows will add parsing as needed.
 func FromMarkdown(md string) (interface{}, error) {
 	clean, title := stripFrontMatter(md)
-	parser := goldmark.DefaultParser()
+	mdp := goldmark.New(goldmark.WithExtensions(extension.Table))
+	parser := mdp.Parser()
 	docNode := parser.Parse(text.NewReader([]byte(clean)))
 
 	out := &Document{Title: title}
@@ -205,6 +221,11 @@ func FromMarkdown(md string) (interface{}, error) {
 			}
 		case *ast.ThematicBreak:
 			out.Body = append(out.Body, HorizontalRule{})
+		case *extast.Table:
+			header, rows := extractTable(v, []byte(clean))
+			if len(header) > 0 || len(rows) > 0 {
+				out.Body = append(out.Body, Table{Header: header, Rows: rows})
+			}
 		}
 	}
 
@@ -279,4 +300,58 @@ func stripFrontMatter(in string) (string, string) {
 		title = strings.Trim(title, `"'`)
 	}
 	return rest, title
+}
+
+func extractTable(tbl *extast.Table, source []byte) ([]string, [][]string) {
+	var header []string
+	var rows [][]string
+	for n := tbl.FirstChild(); n != nil; n = n.NextSibling() {
+		switch v := n.(type) {
+		case *extast.TableHeader:
+			header = extractTableCells(v, source)
+		case *extast.TableRow:
+			rows = append(rows, extractTableRow(v, source))
+		}
+	}
+	return header, rows
+}
+
+func extractTableCells(n ast.Node, source []byte) []string {
+	var cells []string
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if cell, ok := c.(*extast.TableCell); ok {
+			cells = append(cells, strings.TrimSpace(extractText(cell, source)))
+		}
+	}
+	return cells
+}
+
+func extractTableRow(row *extast.TableRow, source []byte) []string {
+	return extractTableCells(row, source)
+}
+
+func tableToMarkdown(t Table) string {
+	if len(t.Header) == 0 && len(t.Rows) == 0 {
+		return ""
+	}
+	header := t.Header
+	if len(header) == 0 && len(t.Rows) > 0 {
+		header = make([]string, len(t.Rows[0]))
+	}
+	var sb strings.Builder
+	writeRow := func(cols []string) {
+		sb.WriteString("| ")
+		sb.WriteString(strings.Join(cols, " | "))
+		sb.WriteString(" |\n")
+	}
+	writeRow(header)
+	sep := make([]string, len(header))
+	for i := range sep {
+		sep[i] = "---"
+	}
+	writeRow(sep)
+	for _, r := range t.Rows {
+		writeRow(r)
+	}
+	return strings.TrimSuffix(sb.String(), "\n")
 }

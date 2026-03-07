@@ -81,6 +81,28 @@ func TestBuildDocsRequests_QuoteAndRule(t *testing.T) {
 	}
 }
 
+func TestBuildDocsRequests_TableFallbackInsert(t *testing.T) {
+	doc := &Document{Body: []Element{
+		Table{Header: []string{"Name", "Value"}, Rows: [][]string{{"A", "1"}}},
+	}}
+
+	reqs, err := buildDocsRequests("", doc)
+	if err != nil {
+		t.Fatalf("buildDocsRequests error: %v", err)
+	}
+
+	var found bool
+	for _, r := range reqs {
+		if r.InsertText != nil && r.InsertText.Text != "" && r.InsertText.Text[0] == '|' {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected inserted markdown table text, req kinds=%v", summarizeReqKinds(reqs))
+	}
+}
+
 func summarizeReqKinds(reqs []*docs.Request) []string {
 	var out []string
 	for _, r := range reqs {

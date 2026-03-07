@@ -240,6 +240,8 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 			}})
 		case HorizontalRule:
 			appendInsert("──────────\n")
+		case Table:
+			appendInsert(tableToMarkdown(v) + "\n")
 		default:
 			// ignore
 		}

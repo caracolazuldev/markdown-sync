@@ -2,7 +2,12 @@ package markdown
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 )
 
 // Document represents a very small subset of a document model used for
@@ -111,90 +116,90 @@ func ToMarkdown(doc interface{}) (string, error) {
 // For now this is intentionally unimplemented and returns an error. Import
 // workflows will add parsing as needed.
 func FromMarkdown(md string) (interface{}, error) {
-	// Very small markdown -> Document parser used for import apply in v0.1.
-	// Supports headings (#), code fences (```), images ![alt](url), and
-	// paragraphs separated by blank lines.
-	var doc Document
-	lines := strings.Split(md, "\n")
-	inCode := false
-	var codeLang string
-	var codeBuf []string
-	var paraBuf []string
+	clean, title := stripFrontMatter(md)
+	parser := goldmark.DefaultParser()
+	docNode := parser.Parse(text.NewReader([]byte(clean)))
 
-	pushParagraph := func() {
-		if len(paraBuf) == 0 {
-			return
-		}
-		doc.Body = append(doc.Body, Paragraph{Text: strings.Join(paraBuf, " ")})
-		paraBuf = nil
-	}
-
-	for i := 0; i < len(lines); i++ {
-		ln := lines[i]
-		if strings.HasPrefix(ln, "---") && i == 0 {
-			// skip simple frontmatter block until closing ---
-			for j := i + 1; j < len(lines); j++ {
-				if strings.HasPrefix(lines[j], "---") {
-					i = j
-					break
+	out := &Document{Title: title}
+	for n := docNode.FirstChild(); n != nil; n = n.NextSibling() {
+		switch v := n.(type) {
+		case *ast.Heading:
+			text := strings.TrimSpace(extractText(v, []byte(clean)))
+			if text != "" {
+				out.Body = append(out.Body, Heading{Level: v.Level, Text: text})
+			}
+		case *ast.Paragraph:
+			// If paragraph contains only image node, map to Image element.
+			if v.FirstChild() != nil && v.FirstChild() == v.LastChild() {
+				if img, ok := v.FirstChild().(*ast.Image); ok {
+					alt := strings.TrimSpace(extractText(img, []byte(clean)))
+					out.Body = append(out.Body, Image{URL: string(img.Destination), Alt: alt})
+					continue
 				}
 			}
-			continue
-		}
-		if strings.HasPrefix(ln, "```") {
-			if !inCode {
-				inCode = true
-				codeLang = strings.TrimSpace(strings.TrimPrefix(ln, "```"))
-				codeBuf = nil
-			} else {
-				// end code
-				doc.Body = append(doc.Body, CodeBlock{Language: codeLang, Code: strings.Join(codeBuf, "\n")})
-				inCode = false
-				codeLang = ""
-				codeBuf = nil
+			text := strings.TrimSpace(extractText(v, []byte(clean)))
+			if text != "" {
+				out.Body = append(out.Body, Paragraph{Text: text})
 			}
-			continue
-		}
-		if inCode {
-			codeBuf = append(codeBuf, ln)
-			continue
-		}
-		lnTrim := strings.TrimSpace(ln)
-		if lnTrim == "" {
-			pushParagraph()
-			continue
-		}
-		if strings.HasPrefix(lnTrim, "#") {
-			pushParagraph()
-			// count leading #'s
-			lvl := 0
-			for _, r := range lnTrim {
-				if r == '#' {
-					lvl++
-				} else {
-					break
-				}
+		case *ast.FencedCodeBlock:
+			lang := strings.TrimSpace(string(v.Language([]byte(clean))))
+			var lines []string
+			for i := 0; i < v.Lines().Len(); i++ {
+				line := v.Lines().At(i)
+				lines = append(lines, string(line.Value([]byte(clean))))
 			}
-			text := strings.TrimSpace(lnTrim[lvl:])
-			doc.Body = append(doc.Body, Heading{Level: lvl, Text: text})
-			continue
-		}
-		// image
-		if strings.HasPrefix(lnTrim, "![") {
-			pushParagraph()
-			// naive parse: ![alt](url)
-			endAlt := strings.Index(lnTrim, "](")
-			endUrl := strings.LastIndex(lnTrim, ")")
-			if endAlt > 0 && endUrl > endAlt {
-				alt := lnTrim[2:endAlt]
-				url := lnTrim[endAlt+2 : endUrl]
-				doc.Body = append(doc.Body, Image{URL: url, Alt: alt})
-				continue
+			code := strings.TrimSuffix(strings.Join(lines, ""), "\n")
+			out.Body = append(out.Body, CodeBlock{Language: lang, Code: code})
+		case *ast.CodeBlock:
+			var lines []string
+			for i := 0; i < v.Lines().Len(); i++ {
+				line := v.Lines().At(i)
+				lines = append(lines, string(line.Value([]byte(clean))))
 			}
+			code := strings.TrimSuffix(strings.Join(lines, ""), "\n")
+			out.Body = append(out.Body, CodeBlock{Language: "", Code: code})
+		case *ast.Image:
+			alt := strings.TrimSpace(extractText(v, []byte(clean)))
+			out.Body = append(out.Body, Image{URL: string(v.Destination), Alt: alt})
 		}
-		// otherwise accumulate paragraph
-		paraBuf = append(paraBuf, lnTrim)
 	}
-	pushParagraph()
-	return &doc, nil
+
+	return out, nil
+}
+
+func extractText(n ast.Node, source []byte) string {
+	var sb strings.Builder
+	ast.Walk(n, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch t := node.(type) {
+		case *ast.Text:
+			sb.Write(t.Segment.Value(source))
+		case *ast.CodeSpan:
+			sb.Write(t.Text(source))
+		}
+		return ast.WalkContinue, nil
+	})
+	return sb.String()
+}
+
+func stripFrontMatter(in string) (string, string) {
+	if !strings.HasPrefix(in, "---\n") {
+		return in, ""
+	}
+	end := strings.Index(in[4:], "\n---\n")
+	if end == -1 {
+		return in, ""
+	}
+	fm := in[4 : 4+end]
+	rest := in[4+end+5:]
+	re := regexp.MustCompile(`(?m)^title:\s*(.+)\s*$`)
+	m := re.FindStringSubmatch(fm)
+	title := ""
+	if len(m) > 1 {
+		title = strings.TrimSpace(m[1])
+		title = strings.Trim(title, `"'`)
+	}
+	return rest, title
 }

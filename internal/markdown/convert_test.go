@@ -68,3 +68,62 @@ func TestToMarkdown_WrapperErrors(t *testing.T) {
 		t.Fatalf("expected error for unsupported type")
 	}
 }
+
+func TestFromMarkdown_GoldmarkBasicMapping(t *testing.T) {
+	input := "---\n" +
+		"title: Parsed Title\n" +
+		"---\n\n" +
+		"# Heading One\n\n" +
+		"Paragraph with **bold** and `code`.\n\n" +
+		"```go\nfmt.Println(\"hi\")\n```\n\n" +
+		"![Alt text](https://example.com/a.png)\n"
+
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc, ok := v.(*Document)
+	if !ok {
+		t.Fatalf("expected *Document, got %T", v)
+	}
+	if doc.Title != "Parsed Title" {
+		t.Fatalf("unexpected title: %q", doc.Title)
+	}
+	if len(doc.Body) < 4 {
+		t.Fatalf("expected at least 4 body elements, got %d", len(doc.Body))
+	}
+
+	h, ok := doc.Body[0].(Heading)
+	if !ok || h.Level != 1 || h.Text != "Heading One" {
+		t.Fatalf("unexpected heading: %#v", doc.Body[0])
+	}
+
+	p, ok := doc.Body[1].(Paragraph)
+	if !ok || !strings.Contains(p.Text, "Paragraph with") {
+		t.Fatalf("unexpected paragraph: %#v", doc.Body[1])
+	}
+
+	cb, ok := doc.Body[2].(CodeBlock)
+	if !ok || cb.Language != "go" || !strings.Contains(cb.Code, "fmt.Println") {
+		t.Fatalf("unexpected codeblock: %#v", doc.Body[2])
+	}
+
+	img, ok := doc.Body[3].(Image)
+	if !ok || img.URL != "https://example.com/a.png" {
+		t.Fatalf("unexpected image: %#v", doc.Body[3])
+	}
+}
+
+func TestFromMarkdown_NoFrontMatter(t *testing.T) {
+	v, err := FromMarkdown("Simple paragraph\n")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	if doc.Title != "" {
+		t.Fatalf("expected empty title, got %q", doc.Title)
+	}
+	if len(doc.Body) != 1 {
+		t.Fatalf("expected 1 body element, got %d", len(doc.Body))
+	}
+}

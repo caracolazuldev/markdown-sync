@@ -9,3 +9,4 @@ dist/
 *.so
 *.dll
 plan-*.prompt.md
+.env

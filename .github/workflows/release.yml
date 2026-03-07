@@ -27,7 +27,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.goos }}
           path: dist/*
 
   publish:
@@ -36,10 +36,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download build artifacts
+      - name: Download build artifacts (linux)
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: dist-linux
+          path: dist
+      - name: Download build artifacts (darwin)
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-darwin
+          path: dist
+      - name: Download build artifacts (windows)
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-windows
           path: dist
       - name: Create Release
         id: create_release

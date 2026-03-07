@@ -9,10 +9,10 @@ import (
 func TestBuildDocsRequests_ListItemsCreateBullets(t *testing.T) {
 	doc := &Document{Body: []Element{
 		ListItem{Ordered: false, Text: "one"},
-		ListItem{Ordered: false, Text: "two"},
+		ListItem{Ordered: false, Level: 1, Text: "two"},
 		Paragraph{Text: "break"},
 		ListItem{Ordered: true, Text: "first"},
-		ListItem{Ordered: true, Text: "second"},
+		ListItem{Ordered: true, Level: 2, Text: "second"},
 	}}
 
 	reqs, err := buildDocsRequests("", doc)
@@ -36,6 +36,22 @@ func TestBuildDocsRequests_ListItemsCreateBullets(t *testing.T) {
 
 	if bulletCount < 2 || !hasUnordered || !hasOrdered {
 		t.Fatalf("expected unordered and ordered bullet requests, got count=%d unordered=%v ordered=%v reqs=%v", bulletCount, hasUnordered, hasOrdered, summarizeReqKinds(reqs))
+	}
+
+	// ensure tab-prefixed inserts are present for nested list levels
+	var hasOneTab, hasTwoTabs bool
+	for _, r := range reqs {
+		if r.InsertText != nil {
+			if len(r.InsertText.Text) > 0 && r.InsertText.Text[0] == '\t' {
+				hasOneTab = true
+			}
+			if len(r.InsertText.Text) > 1 && r.InsertText.Text[0] == '\t' && r.InsertText.Text[1] == '\t' {
+				hasTwoTabs = true
+			}
+		}
+	}
+	if !hasOneTab || !hasTwoTabs {
+		t.Fatalf("expected nested list inserts with tab prefixes, got oneTab=%v twoTabs=%v", hasOneTab, hasTwoTabs)
 	}
 }
 

@@ -50,6 +50,7 @@ func (Image) element() {}
 
 type ListItem struct {
 	Ordered bool
+	Level   int
 	Text    string
 }
 
@@ -97,6 +98,9 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			sb.WriteString(v.URL)
 			sb.WriteString(")\n\n")
 		case ListItem:
+			if v.Level > 0 {
+				sb.WriteString(strings.Repeat("  ", v.Level))
+			}
 			if v.Ordered {
 				sb.WriteString("1. ")
 			} else {
@@ -177,22 +181,44 @@ func FromMarkdown(md string) (interface{}, error) {
 			alt := strings.TrimSpace(extractText(v, []byte(clean)))
 			out.Body = append(out.Body, Image{URL: string(v.Destination), Alt: alt})
 		case *ast.List:
-			ordered := v.IsOrdered()
-			for li := v.FirstChild(); li != nil; li = li.NextSibling() {
-				item, ok := li.(*ast.ListItem)
-				if !ok {
-					continue
-				}
-				text := strings.TrimSpace(extractText(item, []byte(clean)))
-				if text == "" {
-					continue
-				}
-				out.Body = append(out.Body, ListItem{Ordered: ordered, Text: text})
-			}
+			appendListItems(out, v, []byte(clean), 0)
 		}
 	}
 
 	return out, nil
+}
+
+func appendListItems(out *Document, list *ast.List, source []byte, level int) {
+	ordered := list.IsOrdered()
+	for li := list.FirstChild(); li != nil; li = li.NextSibling() {
+		item, ok := li.(*ast.ListItem)
+		if !ok {
+			continue
+		}
+		itemText := extractListItemText(item, source)
+		if itemText != "" {
+			out.Body = append(out.Body, ListItem{Ordered: ordered, Level: level, Text: itemText})
+		}
+		for c := item.FirstChild(); c != nil; c = c.NextSibling() {
+			if sub, ok := c.(*ast.List); ok {
+				appendListItems(out, sub, source, level+1)
+			}
+		}
+	}
+}
+
+func extractListItemText(item *ast.ListItem, source []byte) string {
+	var parts []string
+	for c := item.FirstChild(); c != nil; c = c.NextSibling() {
+		if _, isList := c.(*ast.List); isList {
+			continue
+		}
+		t := strings.TrimSpace(extractText(c, source))
+		if t != "" {
+			parts = append(parts, t)
+		}
+	}
+	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
 func extractText(n ast.Node, source []byte) string {

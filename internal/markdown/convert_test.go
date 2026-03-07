@@ -140,19 +140,37 @@ func TestFromMarkdown_ListItems(t *testing.T) {
 	}
 
 	li0, ok := doc.Body[0].(ListItem)
-	if !ok || li0.Ordered || li0.Text != "one" {
+	if !ok || li0.Ordered || li0.Level != 0 || li0.Text != "one" {
 		t.Fatalf("unexpected first list item: %#v", doc.Body[0])
 	}
 	li2, ok := doc.Body[2].(ListItem)
-	if !ok || !li2.Ordered || li2.Text != "first" {
+	if !ok || !li2.Ordered || li2.Level != 0 || li2.Text != "first" {
 		t.Fatalf("unexpected third list item: %#v", doc.Body[2])
+	}
+}
+
+func TestFromMarkdown_NestedListItems(t *testing.T) {
+	input := "- parent\n  - child\n    - grandchild\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	if len(doc.Body) != 3 {
+		t.Fatalf("expected 3 list items, got %d", len(doc.Body))
+	}
+	li0 := doc.Body[0].(ListItem)
+	li1 := doc.Body[1].(ListItem)
+	li2 := doc.Body[2].(ListItem)
+	if li0.Level != 0 || li1.Level != 1 || li2.Level != 2 {
+		t.Fatalf("unexpected levels: %#v %#v %#v", li0, li1, li2)
 	}
 }
 
 func TestDocumentToMarkdown_ListItems(t *testing.T) {
 	doc := &Document{Body: []Element{
 		ListItem{Ordered: false, Text: "alpha"},
-		ListItem{Ordered: true, Text: "beta"},
+		ListItem{Ordered: true, Level: 1, Text: "beta"},
 	}}
 	got, err := DocumentToMarkdown(doc)
 	if err != nil {
@@ -163,5 +181,8 @@ func TestDocumentToMarkdown_ListItems(t *testing.T) {
 	}
 	if !strings.Contains(got, "1. beta") {
 		t.Fatalf("missing ordered item: %q", got)
+	}
+	if !strings.Contains(got, "  1. beta") {
+		t.Fatalf("missing nested indentation for ordered item: %q", got)
 	}
 }

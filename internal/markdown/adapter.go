@@ -130,11 +130,11 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		currIndex += length
 		return currIndex - length
 	}
-	appendTextWithSpans := func(txt string) {
+	appendTextWithSpans := func(prefix, txt string) {
 		clean, spans := parseInline(txt)
-		start := appendInsert(clean + "\n")
+		start := appendInsert(prefix + clean + "\n")
 		for _, sp := range spans {
-			s := start + int64(sp.Offset)
+			s := start + int64(len(prefix)) + int64(sp.Offset)
 			eidx := s + int64(sp.Length)
 			switch sp.Kind {
 			case "bold":
@@ -194,16 +194,16 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 				Fields:         "namedStyleType",
 			}})
 		case Paragraph:
-			appendTextWithSpans(v.Text)
+			appendTextWithSpans("", v.Text)
 		case ListItem:
 			start := currIndex
-			appendTextWithSpans(v.Text)
+			appendTextWithSpans(strings.Repeat("\t", v.Level), v.Text)
 			for j := i + 1; j < len(doc.Body); j++ {
 				next, ok := doc.Body[j].(ListItem)
 				if !ok || next.Ordered != v.Ordered {
 					break
 				}
-				appendTextWithSpans(next.Text)
+				appendTextWithSpans(strings.Repeat("\t", next.Level), next.Text)
 				i = j
 			}
 			end := currIndex

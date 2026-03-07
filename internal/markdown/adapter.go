@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	gauth "github.com/caracolazuldev/markdown-sync/internal/google"
@@ -119,6 +118,7 @@ func ApplyDocument(authMode, docID string, doc *Document) error {
 // Google Docs Requests that insert text and apply simple heading styles.
 func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 	var reqs []*docs.Request
+	_ = mdText
 	// We'll insert each element's text and, for headings, add an UpdateParagraphStyle request.
 	var currIndex int64 = 1
 
@@ -130,9 +130,40 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		currIndex += length
 		return currIndex - length
 	}
-
-	// helper to detect numbered list prefix like "1. "
-	numRe := regexp.MustCompile(`^\d+\.\s+`)
+	appendTextWithSpans := func(txt string) {
+		clean, spans := parseInline(txt)
+		start := appendInsert(clean + "\n")
+		for _, sp := range spans {
+			s := start + int64(sp.Offset)
+			eidx := s + int64(sp.Length)
+			switch sp.Kind {
+			case "bold":
+				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+					TextStyle: &docs.TextStyle{Bold: true},
+					Fields:    "bold",
+				}})
+			case "italic":
+				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+					TextStyle: &docs.TextStyle{Italic: true},
+					Fields:    "italic",
+				}})
+			case "code":
+				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+					TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
+					Fields:    "weightedFontFamily",
+				}})
+			case "link":
+				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+					TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
+					Fields:    "link",
+				}})
+			}
+		}
+	}
 
 	for i := 0; i < len(doc.Body); i++ {
 		e := doc.Body[i]
@@ -163,79 +194,27 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 				Fields:         "namedStyleType",
 			}})
 		case Paragraph:
-			txt := v.Text
-			// Detect bullet list sequences
-			if strings.HasPrefix(txt, "- ") {
-				// collect consecutive bullet paragraphs
-				start := appendInsert(strings.TrimPrefix(txt, "- ") + "\n")
-				for j := i + 1; j < len(doc.Body); j++ {
-					if p, ok := doc.Body[j].(Paragraph); ok && strings.HasPrefix(p.Text, "- ") {
-						appendInsert(strings.TrimPrefix(p.Text, "- ") + "\n")
-						i = j
-					} else {
-						break
-					}
+			appendTextWithSpans(v.Text)
+		case ListItem:
+			start := currIndex
+			appendTextWithSpans(v.Text)
+			for j := i + 1; j < len(doc.Body); j++ {
+				next, ok := doc.Body[j].(ListItem)
+				if !ok || next.Ordered != v.Ordered {
+					break
 				}
-				end := currIndex
-				reqs = append(reqs, &docs.Request{CreateParagraphBullets: &docs.CreateParagraphBulletsRequest{
-					Range:        &docs.Range{StartIndex: start, EndIndex: end},
-					BulletPreset: "BULLET_DISC_CIRCLE",
-				}})
-			} else if numRe.MatchString(txt) {
-				// numbered list sequence
-				// strip numeric prefix
-				stripped := numRe.ReplaceAllString(txt, "")
-				start := appendInsert(stripped + "\n")
-				for j := i + 1; j < len(doc.Body); j++ {
-					if p, ok := doc.Body[j].(Paragraph); ok && numRe.MatchString(p.Text) {
-						stripped := numRe.ReplaceAllString(p.Text, "")
-						appendInsert(stripped + "\n")
-						i = j
-					} else {
-						break
-					}
-				}
-				end := currIndex
-				reqs = append(reqs, &docs.Request{CreateParagraphBullets: &docs.CreateParagraphBulletsRequest{
-					Range:        &docs.Range{StartIndex: start, EndIndex: end},
-					BulletPreset: "NUMBERED_DECIMAL",
-				}})
-			} else {
-				// handle inline formatting (bold, italic, code, links)
-				clean, spans := parseInline(txt)
-				start := appendInsert(clean + "\n")
-				// apply spans
-				for _, sp := range spans {
-					s := start + int64(sp.Offset)
-					eidx := s + int64(sp.Length)
-					switch sp.Kind {
-					case "bold":
-						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-							TextStyle: &docs.TextStyle{Bold: true},
-							Fields:    "bold",
-						}})
-					case "italic":
-						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-							TextStyle: &docs.TextStyle{Italic: true},
-							Fields:    "italic",
-						}})
-					case "code":
-						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-							TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
-							Fields:    "weightedFontFamily",
-						}})
-					case "link":
-						reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-							TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
-							Fields:    "link",
-						}})
-					}
-				}
+				appendTextWithSpans(next.Text)
+				i = j
 			}
+			end := currIndex
+			preset := "BULLET_DISC_CIRCLE"
+			if v.Ordered {
+				preset = "NUMBERED_DECIMAL"
+			}
+			reqs = append(reqs, &docs.Request{CreateParagraphBullets: &docs.CreateParagraphBulletsRequest{
+				Range:        &docs.Range{StartIndex: start, EndIndex: end},
+				BulletPreset: preset,
+			}})
 		case CodeBlock:
 			start := appendInsert(v.Code + "\n")
 			end := currIndex

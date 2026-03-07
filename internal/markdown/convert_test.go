@@ -127,3 +127,41 @@ func TestFromMarkdown_NoFrontMatter(t *testing.T) {
 		t.Fatalf("expected 1 body element, got %d", len(doc.Body))
 	}
 }
+
+func TestFromMarkdown_ListItems(t *testing.T) {
+	input := "- one\n- two\n\n1. first\n2. second\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	if len(doc.Body) != 4 {
+		t.Fatalf("expected 4 elements, got %d", len(doc.Body))
+	}
+
+	li0, ok := doc.Body[0].(ListItem)
+	if !ok || li0.Ordered || li0.Text != "one" {
+		t.Fatalf("unexpected first list item: %#v", doc.Body[0])
+	}
+	li2, ok := doc.Body[2].(ListItem)
+	if !ok || !li2.Ordered || li2.Text != "first" {
+		t.Fatalf("unexpected third list item: %#v", doc.Body[2])
+	}
+}
+
+func TestDocumentToMarkdown_ListItems(t *testing.T) {
+	doc := &Document{Body: []Element{
+		ListItem{Ordered: false, Text: "alpha"},
+		ListItem{Ordered: true, Text: "beta"},
+	}}
+	got, err := DocumentToMarkdown(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "- alpha") {
+		t.Fatalf("missing bullet item: %q", got)
+	}
+	if !strings.Contains(got, "1. beta") {
+		t.Fatalf("missing ordered item: %q", got)
+	}
+}

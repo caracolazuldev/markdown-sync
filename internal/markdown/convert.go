@@ -48,6 +48,13 @@ type Image struct {
 
 func (Image) element() {}
 
+type ListItem struct {
+	Ordered bool
+	Text    string
+}
+
+func (ListItem) element() {}
+
 // DocumentToMarkdown converts a Document into markdown text. This function is
 // intentionally small and focuses on predictable, testable mappings used by
 // the rest of the project.
@@ -89,6 +96,14 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			sb.WriteString("](")
 			sb.WriteString(v.URL)
 			sb.WriteString(")\n\n")
+		case ListItem:
+			if v.Ordered {
+				sb.WriteString("1. ")
+			} else {
+				sb.WriteString("- ")
+			}
+			sb.WriteString(escapeString(v.Text))
+			sb.WriteString("\n")
 		default:
 			// unknown element, ignore
 		}
@@ -161,6 +176,19 @@ func FromMarkdown(md string) (interface{}, error) {
 		case *ast.Image:
 			alt := strings.TrimSpace(extractText(v, []byte(clean)))
 			out.Body = append(out.Body, Image{URL: string(v.Destination), Alt: alt})
+		case *ast.List:
+			ordered := v.IsOrdered()
+			for li := v.FirstChild(); li != nil; li = li.NextSibling() {
+				item, ok := li.(*ast.ListItem)
+				if !ok {
+					continue
+				}
+				text := strings.TrimSpace(extractText(item, []byte(clean)))
+				if text == "" {
+					continue
+				}
+				out.Body = append(out.Body, ListItem{Ordered: ordered, Text: text})
+			}
 		}
 	}
 

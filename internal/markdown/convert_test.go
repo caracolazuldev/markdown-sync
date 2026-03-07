@@ -186,3 +186,39 @@ func TestDocumentToMarkdown_ListItems(t *testing.T) {
 		t.Fatalf("missing nested indentation for ordered item: %q", got)
 	}
 }
+
+func TestFromMarkdown_QuoteAndRule(t *testing.T) {
+	input := "> quoted line\n\n---\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	if len(doc.Body) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(doc.Body))
+	}
+	q, ok := doc.Body[0].(Quote)
+	if !ok || q.Text != "quoted line" {
+		t.Fatalf("unexpected quote: %#v", doc.Body[0])
+	}
+	if _, ok := doc.Body[1].(HorizontalRule); !ok {
+		t.Fatalf("expected HorizontalRule, got %#v", doc.Body[1])
+	}
+}
+
+func TestDocumentToMarkdown_QuoteAndRule(t *testing.T) {
+	doc := &Document{Body: []Element{
+		Quote{Text: "quoted line"},
+		HorizontalRule{},
+	}}
+	got, err := DocumentToMarkdown(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "> quoted line") {
+		t.Fatalf("missing quote markdown: %q", got)
+	}
+	if !strings.Contains(got, "---") {
+		t.Fatalf("missing horizontal rule markdown: %q", got)
+	}
+}

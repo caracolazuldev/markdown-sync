@@ -56,6 +56,16 @@ type ListItem struct {
 
 func (ListItem) element() {}
 
+type Quote struct {
+	Text string
+}
+
+func (Quote) element() {}
+
+type HorizontalRule struct{}
+
+func (HorizontalRule) element() {}
+
 // DocumentToMarkdown converts a Document into markdown text. This function is
 // intentionally small and focuses on predictable, testable mappings used by
 // the rest of the project.
@@ -108,6 +118,12 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			}
 			sb.WriteString(escapeString(v.Text))
 			sb.WriteString("\n")
+		case Quote:
+			sb.WriteString("> ")
+			sb.WriteString(escapeString(v.Text))
+			sb.WriteString("\n\n")
+		case HorizontalRule:
+			sb.WriteString("---\n\n")
 		default:
 			// unknown element, ignore
 		}
@@ -182,6 +198,13 @@ func FromMarkdown(md string) (interface{}, error) {
 			out.Body = append(out.Body, Image{URL: string(v.Destination), Alt: alt})
 		case *ast.List:
 			appendListItems(out, v, []byte(clean), 0)
+		case *ast.Blockquote:
+			q := strings.TrimSpace(extractText(v, []byte(clean)))
+			if q != "" {
+				out.Body = append(out.Body, Quote{Text: q})
+			}
+		case *ast.ThematicBreak:
+			out.Body = append(out.Body, HorizontalRule{})
 		}
 	}
 

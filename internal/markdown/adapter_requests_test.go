@@ -55,6 +55,32 @@ func TestBuildDocsRequests_ListItemsCreateBullets(t *testing.T) {
 	}
 }
 
+func TestBuildDocsRequests_QuoteAndRule(t *testing.T) {
+	doc := &Document{Body: []Element{
+		Quote{Text: "quoted"},
+		HorizontalRule{},
+	}}
+
+	reqs, err := buildDocsRequests("", doc)
+	if err != nil {
+		t.Fatalf("buildDocsRequests error: %v", err)
+	}
+
+	var hasQuoteItalic, hasRuleInsert bool
+	for _, r := range reqs {
+		if r.UpdateTextStyle != nil && r.UpdateTextStyle.TextStyle != nil && r.UpdateTextStyle.TextStyle.Italic {
+			hasQuoteItalic = true
+		}
+		if r.InsertText != nil && r.InsertText.Text == "──────────\n" {
+			hasRuleInsert = true
+		}
+	}
+
+	if !hasQuoteItalic || !hasRuleInsert {
+		t.Fatalf("expected quote italic and rule insert, got italic=%v rule=%v reqs=%v", hasQuoteItalic, hasRuleInsert, summarizeReqKinds(reqs))
+	}
+}
+
 func summarizeReqKinds(reqs []*docs.Request) []string {
 	var out []string
 	for _, r := range reqs {

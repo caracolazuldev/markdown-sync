@@ -230,6 +230,16 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 				Uri:      v.URL,
 				Location: &docs.Location{Index: start},
 			}})
+		case Quote:
+			start := appendInsert(v.Text + "\n")
+			end := currIndex
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: start, EndIndex: end},
+				TextStyle: &docs.TextStyle{Italic: true},
+				Fields:    "italic",
+			}})
+		case HorizontalRule:
+			appendInsert("──────────\n")
 		default:
 			// ignore
 		}

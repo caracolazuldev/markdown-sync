@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -9,21 +10,35 @@ import (
 	"strings"
 
 	md "github.com/caracolazuldev/gdocs-markdown-sync/internal/markdown"
+	gsync "github.com/caracolazuldev/gdocs-markdown-sync/internal/sync"
 )
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "gdocs-markdown-sync: simple CLI\n")
-	fmt.Fprintf(os.Stderr, "Usage:\n  gdocs-markdown-sync <command> [flags]\nCommands: export, import, preview, list\n")
+	fmt.Fprintf(os.Stderr, "Usage:\n  gdocs-markdown-sync <command> [flags]\nCommands: export, import, preview, list, track\n")
+}
+
+// activeFetcher is SampleFetcher in unit tests; main() sets APIFetcher for the binary.
+var activeFetcher md.Fetcher = md.SampleFetcher{}
+
+func fetchDoc(authMode, docID string) (*md.FetchedDocument, error) {
+	return activeFetcher.Fetch(context.Background(), authMode, docID)
 }
 
 // previewToWriter renders markdown and writes at most maxLines to stdout.
 // If maxLines <= 0, the entire document is written.
 func previewToWriter(authMode, docID string, maxLines int, stdout io.Writer, stderr io.Writer) error {
-	docModel, err := md.FetchDocument(authMode, docID)
+	fetched, err := fetchDoc(authMode, docID)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to fetch doc: %v\n", err)
 		return err
 	}
+	if fetched.IsTabbed() {
+		err := gsync.TabbedHint(docID, fetched.TabCount())
+		fmt.Fprintln(stderr, err.Error())
+		return err
+	}
+	docModel := fetched.Document
 	markdown, err := md.DocumentToMarkdown(docModel)
 	if err != nil {
 		fmt.Fprintf(stderr, "conversion error: %v\n", err)
@@ -58,6 +73,7 @@ func min(a, b int) int {
 }
 
 func main() {
+	activeFetcher = md.APIFetcher{}
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
@@ -71,6 +87,7 @@ func main() {
 	file := fs.String("file", "", "local markdown file")
 	dry := fs.Bool("dry-run", false, "dry run")
 	diff := fs.Bool("diff", false, "show diff between local file and remote doc")
+	force := fs.Bool("force", false, "overwrite dirty tracked files or adopt an untracked directory")
 	fs.Parse(os.Args[2:])
 
 	switch cmd {
@@ -103,6 +120,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "list error: %v\n", err)
 			os.Exit(1)
 		}
+	case "track":
+		if err := trackToWriter(*auth, *doc, *out, *dry, *force, os.Stdout, os.Stderr); err != nil {
+			fmt.Fprintf(os.Stderr, "track error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		usage()
 		os.Exit(2)
@@ -116,11 +138,17 @@ func exportToWriter(authMode, docID, out string, dry bool, stdout io.Writer, std
 		fmt.Fprintln(stderr, "export requires -doc <doc-id>")
 		return fmt.Errorf("missing doc id")
 	}
-	docModel, err := md.FetchDocument(authMode, docID)
+	fetched, err := fetchDoc(authMode, docID)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to fetch doc: %v\n", err)
 		return err
 	}
+	if fetched.IsTabbed() {
+		err := gsync.TabbedHint(docID, fetched.TabCount())
+		fmt.Fprintln(stderr, err.Error())
+		return err
+	}
+	docModel := fetched.Document
 	markdown, err := md.DocumentToMarkdown(docModel)
 	if err != nil {
 		fmt.Fprintf(stderr, "conversion error: %v\n", err)
@@ -168,6 +196,10 @@ func importToWriter(authMode, localFile, docID string, diffOnly bool, stdout io.
 		fmt.Fprintln(stderr, "import requires -file <path>")
 		return fmt.Errorf("missing file path")
 	}
+	if err := gsync.CheckImportAllowed(localFile, docID); err != nil {
+		fmt.Fprintln(stderr, err.Error())
+		return err
+	}
 	localBytes, err := ioutil.ReadFile(localFile)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to read local file: %v\n", err)
@@ -175,12 +207,17 @@ func importToWriter(authMode, localFile, docID string, diffOnly bool, stdout io.
 	}
 	local := strings.Split(string(localBytes), "\n")
 
-	docModel, err := md.FetchDocument(authMode, docID)
+	fetched, err := fetchDoc(authMode, docID)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to fetch doc: %v\n", err)
 		return err
 	}
-	remoteMd, err := md.DocumentToMarkdown(docModel)
+	if fetched.IsTabbed() {
+		err := gsync.TabbedHint(docID, fetched.TabCount())
+		fmt.Fprintln(stderr, err.Error())
+		return err
+	}
+	remoteMd, err := md.DocumentToMarkdown(fetched.Document)
 	if err != nil {
 		fmt.Fprintf(stderr, "conversion error: %v\n", err)
 		return err
@@ -237,4 +274,16 @@ func importToWriter(authMode, localFile, docID string, diffOnly bool, stdout io.
 	}
 	_, err = fmt.Fprintf(stdout, "applied %d body elements to %s\n", len(d.Body), docID)
 	return err
+}
+
+func trackToWriter(authMode, docID, out string, dry, force bool, stdout, stderr io.Writer) error {
+	return gsync.Track(activeFetcher, gsync.Options{
+		AuthMode: authMode,
+		DocID:    docID,
+		OutDir:   out,
+		DryRun:   dry,
+		Force:    force,
+		Stdout:   stdout,
+		Stderr:   stderr,
+	})
 }

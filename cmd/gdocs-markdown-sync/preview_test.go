@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
+
+	md "github.com/caracolazuldev/gdocs-markdown-sync/internal/markdown"
+	gsync "github.com/caracolazuldev/gdocs-markdown-sync/internal/sync"
 )
 
 func TestPreviewToWriter(t *testing.T) {
@@ -14,5 +18,25 @@ func TestPreviewToWriter(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Introduction") {
 		t.Fatalf("unexpected preview output: %q", out.String())
+	}
+}
+
+func TestPreviewTabbedFails(t *testing.T) {
+	old := activeFetcher
+	t.Cleanup(func() { activeFetcher = old })
+	activeFetcher = md.FakeFetcher{Doc: &md.FetchedDocument{
+		ID: "doc-tabbed",
+		Tabs: []*md.Tab{
+			{ID: "a", Title: "A"},
+			{ID: "b", Title: "B"},
+		},
+	}}
+	var out, errb bytes.Buffer
+	err := previewToWriter("oauth", "doc-tabbed", 5, &out, &errb)
+	if !errors.Is(err, gsync.ErrTabbedDocument) {
+		t.Fatalf("err=%v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("preview wrote %q", out.String())
 	}
 }

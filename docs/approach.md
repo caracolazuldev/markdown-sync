@@ -39,3 +39,20 @@ Example (APP-2026-02-23-batching)
 
 Location and discovery
 - Add approach records to `docs/decisions.md` or a dedicated `docs/approaches/` folder and link from `MANIFEST.md`.
+
+- id: APP-2026-08-13-tab-paths
+- title: Map the Docs tab tree to nested folders with a same-named parent body file
+- date: 2026-08-13
+- author: repo-maintainer
+- type: algorithmic
+- description: Walk `document.tabs` and `childTabs`. A leaf tab is `<slug>.md`. A tab with children is folder `<slug>/` plus `<slug>/<slug>.md` for the parent body (even if empty). Recurse. Identity is `tab_id`. On refresh, promote leaf→folder when children appear and flatten when they all disappear. If a child slug collides with the parent-body path, disambiguate the child (suffix a short tab id), never the parent file. `_track.toml` stays at the track root.
+- rationale: Mirrors how people already nest meeting packs in git. Parent tabs can have their own body; skipping nested tabs would drop data. Flattening into one file or skipping children was rejected for the minutes workflow.
+- alternatives: Skip nested tabs (lossy). Flatten to `parent-child.md` (loses hierarchy). Use `_index.md` instead of same-named parent file (less obvious). Path-only identity (breaks on rename).
+- design_patterns: Composite (tab tree), Strategy (leaf vs parent path)
+- performance_considerations: One `documents.get` with `includeTabsContent`; path mapping is in-memory over the tab tree.
+- impact: `internal/sync` path mapping and tests; `track` writes; mapping.md
+- reassessment_triggers: Docs tab depth or slug collisions in real minutes Docs; need for index files for empty parents
+- links:
+  - ADR-2026-08-13-track
+  - Missives/2026-08-13-spec-track-tabbed-docs.md
+

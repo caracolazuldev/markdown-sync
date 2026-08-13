@@ -38,12 +38,21 @@ go test -tags=integration ./cmd/gdocs-markdown-sync -run TestApplyDocumentIntegr
 
 5. Run the CLI against the doc (example)
 
-Export a markdown file and apply it:
+Export a markdown file and apply it (single-tab / legacy body only; tabbed Docs fail `export`):
 
 ```
 ./cmd/gdocs-markdown-sync export -auth service -doc $INTEGRATION_DOC_ID -out /tmp/out.md
 ./cmd/gdocs-markdown-sync import -auth service -file /path/to/local.md -doc $INTEGRATION_DOC_ID
 ```
+
+Optional: one-way `track` of a multi-tab fixture (not required for unit tests):
+
+```
+export INTEGRATION_TABBED_DOC_ID=1aB2cD3EfGhiJkLmnopQRsTUvWXyz
+./bin/gdocs-markdown-sync track -auth service -doc $INTEGRATION_TABBED_DOC_ID -out /tmp/tracked
+```
+
+Share the tabbed Doc with the service account as in step 3. `track` only reads the Doc.
 
 Security notes
 --------------

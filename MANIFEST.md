@@ -15,9 +15,10 @@ Primary Personas
 
 Key Use Cases
 -------------
-- Export: convert a Google Doc into one or more Markdown files with assets saved locally.
-- Import: push a Markdown file to a Google Doc (create or update content).
-- Preview: render a Google Doc as Markdown without saving.
+- Export: convert a single-tab (or legacy) Google Doc into one Markdown file.
+- Track: one-way pull of a tabbed Google Doc into a nested folder of Markdown files (`_track.toml`, pull-only).
+- Import: push a Markdown file to a Google Doc (create or update content). Refuses tracked trees.
+- Preview: render a Google Doc as Markdown without saving (fails on tabbed Docs).
 - List: enumerate accessible Docs and their metadata.
 
 Business Requirements
@@ -38,7 +39,7 @@ Non-functional Requirements
 - ----------------------
 - Language: Go (minimum 1.21).
 - Module: `github.com/caracolazuldev/gdocs-markdown-sync` (placeholder).
-- CLI commands: `export`, `import`, `preview`, `list` (see docs/cli-spec.md).
+- CLI commands: `export`, `import`, `preview`, `list`, `track` (see docs/cli-spec.md).
 - Auth: support both OAuth2 user-consent and service account flows (see docs/auth.md).
 - Mapping rules: documented in docs/mapping.md (headings, paragraphs, code blocks, images, tables, links, frontmatter).
 - Tests: unit tests for mapping and adapters; gated integration tests against Google Docs (service account or test user), described in docs/testing.md.
@@ -66,7 +67,7 @@ Supporting Documents (drafts)
 Roadmap and Next Work
 ----------------------
 v0.1: Manual export/import/preview + auth flows + mapping for core features.
-v0.2: Add bidirectional sync, comments/suggestions mapping, automatic watchers.
+v0.2: One-way `track` for tabbed Docs (ADR-2026-08-13-track). Bidirectional tab sync is declined (see Missives/2026-08-13-response-tabbed-doc-directory-sync.md). Comments/suggestions and watchers remain later.
 
 CI and Automation
 -----------------
@@ -79,3 +80,6 @@ Owner: repository maintainer (TBD)
 Decisions
 ---------
 - See `docs/decisions.md` for recorded architecture and business-logic decisions; PRs updating architecture or business logic must add or update a decision record.
+- ADR-2026-08-13-track — one-way `track`; `export` fails on tabbed Docs.
+- APP-2026-08-13-tab-paths — tab tree to nested folder paths.
+- Product spec: `Missives/2026-08-13-spec-track-tabbed-docs.md` (references the decline missive; does not amend it).

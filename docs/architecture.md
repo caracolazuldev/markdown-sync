@@ -2,17 +2,24 @@
 
 Summary
 -------
-`gdocs-markdown-sync` is a small CLI with a modular architecture to keep Google API concerns, markdown transformation, and storage separate.
+`gdocs-markdown-sync` is a small CLI with a modular architecture to keep Google API concerns, markdown transformation, and local track layout separate.
+
+Commands
+--------
+- `export` / `preview` / `import` / `list`: one Google Doc ID ↔ one Markdown file (legacy body or a single leaf tab).
+- `track`: one-way Docs → nested local folder for **tabbed** documents. Pull-only. See `Missives/2026-08-13-spec-track-tabbed-docs.md` and ADR-2026-08-13-track.
+
+`export` and `preview` fail closed on tabbed documents (more than one tab at any depth, or any `childTabs`) and direct the user to `track`. `import` refuses paths under a track root.
 
 Components
 ----------
-- CLI (`cmd/gdocs-markdown-sync`): argument parsing, UX, and orchestration.
-- Auth Layer (`internal/google`): handle OAuth2 and service-account credential flows and provide an authenticated HTTP client.
-- Google Docs Adapter (`internal/google/docs_adapter.go`): thin wrapper around the Google Docs REST API; handles fetch/patch operations and retries.
-- Markdown Engine (`internal/markdown`): deterministic conversion rules between Docs structured content and Markdown text (+asset extraction).
-- Sync Orchestrator (`internal/sync`): high-level operations for export/import/preview and conflict policies.
-- Storage (`internal/storage`): local file IO, asset caching, and path mapping.
-- Test utilities (`internal/testutil`): fixtures, mocks, and small in-memory fakes for unit tests.
+- CLI (`cmd/gdocs-markdown-sync`): argument parsing, UX, and wiring. Keep this thin.
+- Auth Layer (`internal/google`): OAuth2 and service-account credential flows; authenticated HTTP client.
+- Markdown adapter (`internal/markdown`): document model, Markdown conversion, fetch/apply against the Docs API. Fetch is injectable (`Fetcher`) so unit tests never call the network. Production CLI uses the API fetcher (`documents.get` with `includeTabsContent=true`).
+- Sync orchestrator (`internal/sync`): `track` (tab-tree → nested paths, `_track.toml`, chmod cycle, dirty/`--force`, first-run guard) and import refusal for tracked trees.
+- Test utilities: fakes implementing `markdown.Fetcher`; fixtures for tab trees.
+
+The following were planned in earlier drafts and are **not present**: `internal/google/docs_adapter.go`, `internal/storage`. Fetch/apply live in `internal/markdown`. Track file IO lives in `internal/sync`.
 
 Deployment & Packaging
 ----------------------
@@ -23,7 +30,7 @@ Observability & Reliability
 ---------------------------
 - Structured logging with configurable verbosity.
 - Retries with exponential backoff for transient Google API errors.
-- Clear error types to enable programmatic handling by higher-level scripts.
+- Sentinel errors (`ErrTabbedDocument`, `ErrTrackedPath`, `ErrDirtyTrack`, `ErrNotTrackRoot`, `ErrDocIDMismatch`) for stable CLI hints.
 
 Security
 --------

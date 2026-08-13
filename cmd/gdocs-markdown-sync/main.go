@@ -85,8 +85,13 @@ func main() {
 				fmt.Fprintf(os.Stderr, "import error: %v\n", err)
 				os.Exit(1)
 			}
+		} else if *dry {
+			fmt.Printf("dry-run: would import file=%s doc=%s auth=%s\n", *file, *doc, *auth)
 		} else {
-			fmt.Printf("import: file=%s doc=%s auth=%s dry=%v\n", *file, *doc, *auth, *dry)
+			if err := importToWriter(*auth, *file, *doc, false, os.Stdout, os.Stderr); err != nil {
+				fmt.Fprintf(os.Stderr, "import error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	case "preview":
 		if err := previewToWriter(*auth, *doc, 20, os.Stdout, os.Stderr); err != nil {

@@ -25,10 +25,10 @@ func TestBuildDocsRequests_ListItemsCreateBullets(t *testing.T) {
 	for _, r := range reqs {
 		if r.CreateParagraphBullets != nil {
 			bulletCount++
-			if r.CreateParagraphBullets.BulletPreset == "BULLET_DISC_CIRCLE" {
+			if r.CreateParagraphBullets.BulletPreset == "BULLET_DISC_CIRCLE_SQUARE" {
 				hasUnordered = true
 			}
-			if r.CreateParagraphBullets.BulletPreset == "NUMBERED_DECIMAL" {
+			if r.CreateParagraphBullets.BulletPreset == "NUMBERED_DECIMAL_ALPHA_ROMAN" {
 				hasOrdered = true
 			}
 		}

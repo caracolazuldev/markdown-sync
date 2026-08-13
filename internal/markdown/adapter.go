@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"unicode/utf16"
 
 	gauth "github.com/caracolazuldev/gdocs-markdown-sync/internal/google"
 	"github.com/yuin/goldmark"
@@ -104,10 +105,12 @@ func ApplyDocument(authMode, docID string, doc *Document) error {
 		return fmt.Errorf("building docs requests: %w", err)
 	}
 
-	// Prepend delete of existing content.
-	delReq := &docs.Request{DeleteContentRange: &docs.DeleteContentRangeRequest{Range: &docs.Range{StartIndex: 1, EndIndex: endIndex}}}
-	all := append([]*docs.Request{delReq}, requests...)
-
+	// Prepend delete of existing content when there is anything to remove.
+	all := requests
+	if endIndex > 1 {
+		delReq := &docs.Request{DeleteContentRange: &docs.DeleteContentRangeRequest{Range: &docs.Range{StartIndex: 1, EndIndex: endIndex}}}
+		all = append([]*docs.Request{delReq}, requests...)
+	}
 	_, err = svc.Documents.BatchUpdate(docID, &docs.BatchUpdateDocumentRequest{Requests: all}).Do()
 	if err != nil {
 		return fmt.Errorf("batch update failed: %w", err)
@@ -140,20 +143,29 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 	// We'll insert each element's text and, for headings, add an UpdateParagraphStyle request.
 	var currIndex int64 = 1
 
+	utf16Len := func(s string) int64 {
+		return int64(len(utf16.Encode([]rune(s))))
+	}
 	appendInsert := func(text string) int64 {
 		// create InsertText request at current index
 		r := &docs.Request{InsertText: &docs.InsertTextRequest{Text: text, Location: &docs.Location{Index: currIndex}}}
 		reqs = append(reqs, r)
-		length := int64(len(text))
+		// Docs API indexes are UTF-16 code units, not Go string bytes.
+		length := utf16Len(text)
 		currIndex += length
 		return currIndex - length
 	}
 	appendTextWithSpans := func(prefix, txt string) {
 		clean, spans := parseInline(txt)
 		start := appendInsert(prefix + clean + "\n")
+		prefixUnits := utf16Len(prefix)
 		for _, sp := range spans {
-			s := start + int64(len(prefix)) + int64(sp.Offset)
-			eidx := s + int64(sp.Length)
+			runes := []rune(clean)
+			if sp.Offset < 0 || sp.Offset+sp.Length > len(runes) {
+				continue
+			}
+			s := start + prefixUnits + utf16Len(string(runes[:sp.Offset]))
+			eidx := s + utf16Len(string(runes[sp.Offset:sp.Offset+sp.Length]))
 			switch sp.Kind {
 			case "bold":
 				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
@@ -225,9 +237,9 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 				i = j
 			}
 			end := currIndex
-			preset := "BULLET_DISC_CIRCLE"
+			preset := "BULLET_DISC_CIRCLE_SQUARE"
 			if v.Ordered {
-				preset = "NUMBERED_DECIMAL"
+				preset = "NUMBERED_DECIMAL_ALPHA_ROMAN"
 			}
 			reqs = append(reqs, &docs.Request{CreateParagraphBullets: &docs.CreateParagraphBulletsRequest{
 				Range:        &docs.Range{StartIndex: start, EndIndex: end},

@@ -2,7 +2,6 @@ package markdown
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/yuin/goldmark"
@@ -17,6 +16,9 @@ import (
 // be adapted to this structure by the google adapter.
 type Document struct {
 	Title string
+	DocID string
+	TabID string
+	Track bool
 	Body  []Element
 }
 
@@ -83,11 +85,27 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 		return "", fmt.Errorf("nil document")
 	}
 	var sb strings.Builder
-	if doc.Title != "" {
+	if hasFrontMatter(doc) {
 		sb.WriteString("---\n")
-		sb.WriteString("title: ")
-		sb.WriteString(escapeString(doc.Title))
-		sb.WriteString("\n---\n\n")
+		if doc.Title != "" {
+			sb.WriteString("title: ")
+			sb.WriteString(escapeString(doc.Title))
+			sb.WriteString("\n")
+		}
+		if doc.DocID != "" {
+			sb.WriteString("doc_id: ")
+			sb.WriteString(escapeString(doc.DocID))
+			sb.WriteString("\n")
+		}
+		if doc.TabID != "" {
+			sb.WriteString("tab_id: ")
+			sb.WriteString(escapeString(doc.TabID))
+			sb.WriteString("\n")
+		}
+		if doc.Track {
+			sb.WriteString("track: true\n")
+		}
+		sb.WriteString("---\n\n")
 	}
 	for _, e := range doc.Body {
 		switch v := e.(type) {
@@ -144,6 +162,10 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+func hasFrontMatter(doc *Document) bool {
+	return doc.Title != "" || doc.DocID != "" || doc.TabID != "" || doc.Track
 }
 
 func escapeString(s string) string {
@@ -283,23 +305,49 @@ func extractText(n ast.Node, source []byte) string {
 }
 
 func stripFrontMatter(in string) (string, string) {
+	body, fm := SplitFrontMatter(in)
+	return body, fm.Title
+}
+
+// FrontMatter is the YAML header parsed from a Markdown file.
+type FrontMatter struct {
+	Title string
+	DocID string
+	TabID string
+	Track bool
+}
+
+// SplitFrontMatter separates a leading YAML block from the Markdown body.
+func SplitFrontMatter(in string) (string, FrontMatter) {
+	var fm FrontMatter
 	if !strings.HasPrefix(in, "---\n") {
-		return in, ""
+		return in, fm
 	}
 	end := strings.Index(in[4:], "\n---\n")
 	if end == -1 {
-		return in, ""
+		return in, fm
 	}
-	fm := in[4 : 4+end]
+	raw := in[4 : 4+end]
 	rest := in[4+end+5:]
-	re := regexp.MustCompile(`(?m)^title:\s*(.+)\s*$`)
-	m := re.FindStringSubmatch(fm)
-	title := ""
-	if len(m) > 1 {
-		title = strings.TrimSpace(m[1])
-		title = strings.Trim(title, `"'`)
+	for _, line := range strings.Split(raw, "\n") {
+		key, val, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.Trim(strings.TrimSpace(val), `"'`)
+		switch key {
+		case "title":
+			fm.Title = val
+		case "doc_id":
+			fm.DocID = val
+		case "tab_id":
+			fm.TabID = val
+		case "track":
+			fm.Track = val == "true" || val == "yes" || val == "1"
+		}
 	}
-	return rest, title
+	return rest, fm
 }
 
 func extractTable(tbl *extast.Table, source []byte) ([]string, [][]string) {

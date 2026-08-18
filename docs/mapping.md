@@ -8,8 +8,14 @@ Supported elements
 ------------------
 - Headings → `#` / `##` / `###` based on heading level
 - Paragraphs → plain paragraphs
-- Code blocks → fenced code blocks with language where available
-- Images → saved to an `assets/` folder; referenced by relative paths in Markdown
+- Inline text styles (import and export, in headings, paragraphs, list items, and table cells):
+  - Bold ↔ `**text**`
+  - Italic ↔ `*text*`
+  - Bold+italic ↔ `***text***`
+  - Inline code ↔ `` `text` `` (Docs: Courier New)
+  - Links ↔ `[text](url)`
+- Code blocks → fenced code blocks with language where available (import)
+- Images → saved to an `assets/` folder; referenced by relative paths in Markdown (import)
 - Tables → converted to GitHub-flavored Markdown tables where possible; complex tables flagged
 - Links & footnotes → inline links and footnote-style where detected
 - Frontmatter (1:1 export) → YAML containing `title` (and `doc_id` / `last_modified` when available)
@@ -28,9 +34,13 @@ Unsupported / Limitations
 -------------------------
 - Complex layout elements (textboxes, positioned images) are not preserved.
 - Comments and suggestions are not mapped in v0.1 (future work).
+- Strikethrough, underline, subscript, and superscript are not mapped.
 - `export` does not flatten tabbed documents; use `track`.
 - `track` does not push Markdown back to Docs (see ADR-2026-08-13-track).
+- Block-level export still maps every non-heading paragraph to a plain paragraph: Docs bullets, blockquotes, fenced code blocks, images, and horizontal rules are not reconstructed on export.
 
 Round-trip / determinism
 ------------------------
 1:1 mapping is designed to be idempotent: repeated export of the same single-tab document yields the same Markdown (modulo non-deterministic metadata like timestamps). `track` refreshes from Docs; local edits are dirty unless `--force`.
+
+Inline bold, italic, code, and links round-trip through Docs `TextStyle` as markdown markers in heading/paragraph/table-cell text. Unstyled `*`, `_`, backticks, and brackets are escaped on export so a later import does not invent styles.

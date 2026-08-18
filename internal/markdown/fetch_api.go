@@ -150,18 +150,94 @@ func headingLevel(named string) (int, bool) {
 	}
 }
 
+type runStyle struct {
+	bold   bool
+	italic bool
+	code   bool
+	link   string
+}
+
+type inlineRun struct {
+	text  string
+	style runStyle
+}
+
 func paragraphText(p *docs.Paragraph) string {
 	if p == nil {
 		return ""
 	}
-	var b strings.Builder
+	var runs []inlineRun
 	for _, el := range p.Elements {
 		if el == nil || el.TextRun == nil {
 			continue
 		}
-		b.WriteString(el.TextRun.Content)
+		content := strings.ReplaceAll(el.TextRun.Content, "\n", " ")
+		if content == "" {
+			continue
+		}
+		st := styleFromTextStyle(el.TextRun.TextStyle)
+		if n := len(runs); n > 0 && runs[n-1].style == st {
+			runs[n-1].text += content
+			continue
+		}
+		runs = append(runs, inlineRun{text: content, style: st})
 	}
-	return strings.TrimSpace(strings.ReplaceAll(b.String(), "\n", " "))
+	var b strings.Builder
+	for _, r := range runs {
+		b.WriteString(styledRunToMarkdown(r.text, r.style))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func styleFromTextStyle(ts *docs.TextStyle) runStyle {
+	if ts == nil {
+		return runStyle{}
+	}
+	st := runStyle{bold: ts.Bold, italic: ts.Italic}
+	if ts.WeightedFontFamily != nil && ts.WeightedFontFamily.FontFamily == "Courier New" {
+		st.code = true
+	}
+	if ts.Link != nil {
+		st.link = ts.Link.Url
+	}
+	return st
+}
+
+// styledRunToMarkdown encodes a Docs text run as inline markdown so re-import
+// via parseInline can recover bold, italic, code, and links.
+func styledRunToMarkdown(content string, st runStyle) string {
+	if content == "" {
+		return ""
+	}
+	inner := content
+	if st.code {
+		inner = "`" + content + "`"
+	} else {
+		inner = escapeMarkdownPunctuation(content)
+	}
+	if st.bold && st.italic {
+		inner = "***" + inner + "***"
+	} else if st.bold {
+		inner = "**" + inner + "**"
+	} else if st.italic {
+		inner = "*" + inner + "*"
+	}
+	if st.link != "" {
+		inner = "[" + inner + "](" + st.link + ")"
+	}
+	return inner
+}
+
+func escapeMarkdownPunctuation(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '\\', '*', '_', '`', '[', ']':
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func tableFromAPI(t *docs.Table) (Table, bool) {

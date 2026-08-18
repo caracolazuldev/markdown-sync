@@ -99,7 +99,7 @@ func TestFromMarkdown_GoldmarkBasicMapping(t *testing.T) {
 	}
 
 	p, ok := doc.Body[1].(Paragraph)
-	if !ok || !strings.Contains(p.Text, "Paragraph with") {
+	if !ok || p.Text != "Paragraph with **bold** and `code`." {
 		t.Fatalf("unexpected paragraph: %#v", doc.Body[1])
 	}
 
@@ -253,7 +253,50 @@ func TestDocumentToMarkdown_Table(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(got, "| Name | Value |") || !strings.Contains(got, "| A | 1 |") {
+	if !strings.Contains(got, "| A | 1 |") || !strings.Contains(got, "| Name | Value |") {
 		t.Fatalf("unexpected table markdown: %q", got)
+	}
+}
+
+func TestFromMarkdown_PreservesInlineFormatting(t *testing.T) {
+	input := "Hello **bold** *italic* `code` and [link](https://example.com)\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	if len(doc.Body) != 1 {
+		t.Fatalf("expected 1 body element, got %d", len(doc.Body))
+	}
+	p := doc.Body[0].(Paragraph)
+	want := "Hello **bold** *italic* `code` and [link](https://example.com)"
+	if p.Text != want {
+		t.Fatalf("inline markers not preserved: got %q want %q", p.Text, want)
+	}
+}
+
+func TestFromMarkdown_TablePreservesInlineFormatting(t *testing.T) {
+	input := "| Col |\n| --- |\n| **bold** |\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	tbl := doc.Body[0].(Table)
+	if tbl.Rows[0][0] != "**bold**" {
+		t.Fatalf("table cell markers not preserved: got %q", tbl.Rows[0][0])
+	}
+}
+
+func TestFromMarkdown_ListItemPreservesInlineFormatting(t *testing.T) {
+	input := "- item with **bold**\n"
+	v, err := FromMarkdown(input)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	doc := v.(*Document)
+	li := doc.Body[0].(ListItem)
+	if li.Text != "item with **bold**" {
+		t.Fatalf("list item markers not preserved: got %q", li.Text)
 	}
 }

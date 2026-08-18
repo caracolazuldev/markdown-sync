@@ -287,20 +287,39 @@ func extractListItemText(item *ast.ListItem, source []byte) string {
 	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
+// extractText serializes block content to a string, preserving inline markdown
+// markers so downstream Google Docs apply logic can detect bold, italic, code,
+// and links via parseInline.
 func extractText(n ast.Node, source []byte) string {
 	var sb strings.Builder
-	ast.Walk(n, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
+	var walk func(n ast.Node)
+	walk = func(n ast.Node) {
+		for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+			switch v := c.(type) {
+			case *ast.Text:
+				sb.Write(v.Segment.Value(source))
+			case *ast.CodeSpan:
+				sb.WriteByte('`')
+				sb.Write(v.Text(source))
+				sb.WriteByte('`')
+			case *ast.Emphasis:
+				marker := strings.Repeat("*", v.Level)
+				sb.WriteString(marker)
+				walk(v)
+				sb.WriteString(marker)
+			case *ast.Link:
+				sb.WriteByte('[')
+				walk(v)
+				sb.WriteByte(']')
+				sb.WriteByte('(')
+				sb.Write(v.Destination)
+				sb.WriteByte(')')
+			default:
+				walk(v)
+			}
 		}
-		switch t := node.(type) {
-		case *ast.Text:
-			sb.Write(t.Segment.Value(source))
-		case *ast.CodeSpan:
-			sb.Write(t.Text(source))
-		}
-		return ast.WalkContinue, nil
-	})
+	}
+	walk(n)
 	return sb.String()
 }
 

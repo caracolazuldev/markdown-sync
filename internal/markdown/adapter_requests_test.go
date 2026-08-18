@@ -81,6 +81,69 @@ func TestBuildDocsRequests_QuoteAndRule(t *testing.T) {
 	}
 }
 
+func TestBuildDocsRequests_ParagraphInlineStyles(t *testing.T) {
+	v, err := FromMarkdown("Hello **bold** *italic* `code` [link](https://example.com)\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown error: %v", err)
+	}
+	doc := v.(*Document)
+
+	reqs, err := buildDocsRequests("", doc)
+	if err != nil {
+		t.Fatalf("buildDocsRequests error: %v", err)
+	}
+
+	var hasBold, hasItalic, hasCode, hasLink bool
+	for _, r := range reqs {
+		if r.UpdateTextStyle == nil || r.UpdateTextStyle.TextStyle == nil {
+			continue
+		}
+		ts := r.UpdateTextStyle.TextStyle
+		if ts.Bold {
+			hasBold = true
+		}
+		if ts.Italic {
+			hasItalic = true
+		}
+		if ts.WeightedFontFamily != nil && ts.WeightedFontFamily.FontFamily == "Courier New" {
+			hasCode = true
+		}
+		if ts.Link != nil && ts.Link.Url == "https://example.com" {
+			hasLink = true
+		}
+	}
+	if !hasBold || !hasItalic || !hasCode || !hasLink {
+		t.Fatalf("missing inline styles: bold=%v italic=%v code=%v link=%v", hasBold, hasItalic, hasCode, hasLink)
+	}
+}
+
+func TestBuildDocsRequests_HeadingInlineStyles(t *testing.T) {
+	v, err := FromMarkdown("# Title with **bold**\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown error: %v", err)
+	}
+	doc := v.(*Document)
+
+	reqs, err := buildDocsRequests("", doc)
+	if err != nil {
+		t.Fatalf("buildDocsRequests error: %v", err)
+	}
+
+	var hasBold, hasHeadingStyle bool
+	for _, r := range reqs {
+		if r.UpdateTextStyle != nil && r.UpdateTextStyle.TextStyle != nil && r.UpdateTextStyle.TextStyle.Bold {
+			hasBold = true
+		}
+		if r.UpdateParagraphStyle != nil && r.UpdateParagraphStyle.ParagraphStyle != nil &&
+			r.UpdateParagraphStyle.ParagraphStyle.NamedStyleType == "HEADING_1" {
+			hasHeadingStyle = true
+		}
+	}
+	if !hasBold || !hasHeadingStyle {
+		t.Fatalf("expected heading bold and heading style, got bold=%v heading=%v", hasBold, hasHeadingStyle)
+	}
+}
+
 func TestBuildDocsRequests_TableNativeInsert(t *testing.T) {
 	doc := &Document{Body: []Element{
 		Table{Header: []string{"Name", "Value"}, Rows: [][]string{{"A", "1"}}},

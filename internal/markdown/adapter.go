@@ -146,17 +146,14 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		currIndex += length
 		return currIndex - length
 	}
-	appendTextWithSpans := func(prefix, txt string) {
-		clean, spans := parseInline(txt)
-		start := appendInsert(prefix + clean + "\n")
-		prefixUnits := utf16Len(prefix)
+	appendInlineStyleReqs := func(textStart int64, clean string, spans []inlineSpan) {
 		for _, sp := range spans {
 			runes := []rune(clean)
 			if sp.Offset < 0 || sp.Offset+sp.Length > len(runes) {
 				continue
 			}
-			s := start + prefixUnits + utf16Len(string(runes[:sp.Offset]))
-			eidx := s + utf16Len(string(runes[sp.Offset:sp.Offset+sp.Length]))
+			s := textStart + utf16Len(string(runes[:sp.Offset]))
+			eidx := s + utf16Len(string(runes[sp.Offset : sp.Offset+sp.Length]))
 			switch sp.Kind {
 			case "bold":
 				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
@@ -185,13 +182,19 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 			}
 		}
 	}
+	appendTextWithSpans := func(prefix, txt string) {
+		clean, spans := parseInline(txt)
+		start := appendInsert(prefix + clean + "\n")
+		appendInlineStyleReqs(start+utf16Len(prefix), clean, spans)
+	}
 
 	for i := 0; i < len(doc.Body); i++ {
 		e := doc.Body[i]
 		switch v := e.(type) {
 		case Heading:
-			// Insert heading text + newline
-			start := appendInsert(v.Text + "\n")
+			clean, spans := parseInline(v.Text)
+			start := appendInsert(clean + "\n")
+			appendInlineStyleReqs(start, clean, spans)
 			end := currIndex
 			// Map level to NamedStyleType
 			var nst string
@@ -497,7 +500,8 @@ func parseInline(s string) (string, []inlineSpan) {
 				next := st
 				if v.Level >= 2 {
 					next.bold = true
-				} else {
+				}
+				if v.Level == 1 || v.Level >= 3 {
 					next.italic = true
 				}
 				walkInline(v, next)

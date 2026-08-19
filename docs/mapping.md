@@ -38,7 +38,8 @@ Unsupported / Limitations
 - Strikethrough, underline, subscript, and superscript are not mapped.
 - `export` does not flatten tabbed documents; use `track`.
 - `track` does not push Markdown back to Docs (see ADR-2026-08-13-track).
-- Block-level export still maps every non-heading paragraph to a plain paragraph: Docs bullets, blockquotes, fenced code blocks, images, and horizontal rules are not reconstructed on export.
+- Block-level export maps Docs bullets to Markdown list items (`- ` / `1. `, nested by `NestingLevel`). Heading style wins if a paragraph is both a heading and a bullet.
+- Blockquotes, fenced code blocks, images, and horizontal rules are not reconstructed on export.
 
 Round-trip / determinism
 ------------------------

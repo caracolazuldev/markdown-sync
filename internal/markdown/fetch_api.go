@@ -37,7 +37,7 @@ func (APIFetcher) Fetch(ctx context.Context, authMode, docID string) (*FetchedDo
 func fetchedFromAPI(docID string, remote *docs.Document) *FetchedDocument {
 	out := &FetchedDocument{ID: docID, Title: remote.Title}
 	if len(remote.Tabs) == 0 {
-		out.Document = bodyToDocument(remote.Title, docID, "", remote.Body)
+		out.Document = bodyToDocument(remote.Title, docID, "", remote.Body, remote.Lists)
 		return out
 	}
 	out.Tabs = convertAPITabs(docID, remote.Tabs)
@@ -57,9 +57,9 @@ func convertAPITabs(docID string, tabs []*docs.Tab) []*Tab {
 			tab.Title = t.TabProperties.Title
 		}
 		if t.DocumentTab != nil {
-			tab.Document = bodyToDocument(tab.Title, docID, tab.ID, t.DocumentTab.Body)
+			tab.Document = bodyToDocument(tab.Title, docID, tab.ID, t.DocumentTab.Body, t.DocumentTab.Lists)
 		} else {
-			tab.Document = bodyToDocument(tab.Title, docID, tab.ID, nil)
+			tab.Document = bodyToDocument(tab.Title, docID, tab.ID, nil, nil)
 		}
 		if len(t.ChildTabs) > 0 {
 			tab.Children = convertAPITabs(docID, t.ChildTabs)
@@ -97,7 +97,7 @@ func firstLeafDocument(tabs []*Tab) *Document {
 	return nil
 }
 
-func bodyToDocument(title, docID, tabID string, body *docs.Body) *Document {
+func bodyToDocument(title, docID, tabID string, body *docs.Body, lists map[string]docs.List) *Document {
 	doc := &Document{Title: title, DocID: docID, TabID: tabID}
 	if body == nil {
 		return doc
@@ -107,7 +107,7 @@ func bodyToDocument(title, docID, tabID string, body *docs.Body) *Document {
 			continue
 		}
 		if se.Paragraph != nil {
-			text := paragraphText(se.Paragraph)
+			text := strings.TrimLeft(paragraphText(se.Paragraph), "\t")
 			if text == "" {
 				continue
 			}
@@ -117,6 +117,15 @@ func bodyToDocument(title, docID, tabID string, body *docs.Body) *Document {
 			}
 			if level, ok := headingLevel(style); ok {
 				doc.Body = append(doc.Body, Heading{Level: level, Text: text})
+				continue
+			}
+			if se.Paragraph.Bullet != nil {
+				level := int(se.Paragraph.Bullet.NestingLevel)
+				doc.Body = append(doc.Body, ListItem{
+					Ordered: listItemOrdered(lists, se.Paragraph.Bullet),
+					Level:   level,
+					Text:    text,
+				})
 				continue
 			}
 			doc.Body = append(doc.Body, Paragraph{Text: text})
@@ -129,6 +138,31 @@ func bodyToDocument(title, docID, tabID string, body *docs.Body) *Document {
 		}
 	}
 	return doc
+}
+
+func listItemOrdered(lists map[string]docs.List, bullet *docs.Bullet) bool {
+	if bullet == nil || lists == nil {
+		return false
+	}
+	lst, ok := lists[bullet.ListId]
+	if !ok || lst.ListProperties == nil {
+		return false
+	}
+	levels := lst.ListProperties.NestingLevels
+	i := int(bullet.NestingLevel)
+	if i < 0 || i >= len(levels) || levels[i] == nil {
+		return false
+	}
+	return glyphTypeOrdered(levels[i].GlyphType)
+}
+
+func glyphTypeOrdered(g string) bool {
+	switch g {
+	case "DECIMAL", "ZERO_DECIMAL", "ALPHA", "UPPER_ALPHA", "LOWER_ALPHA", "ROMAN", "UPPER_ROMAN", "LOWER_ROMAN":
+		return true
+	default:
+		return false
+	}
 }
 
 func headingLevel(named string) (int, bool) {

@@ -91,7 +91,7 @@ func TestBodyToDocument_HeadingAndTableInlineStyles(t *testing.T) {
 			}}}},
 		}}},
 	}}
-	doc := bodyToDocument("T", "doc-1", "tab-1", body)
+	doc := bodyToDocument("T", "doc-1", "tab-1", body, nil)
 	if len(doc.Body) != 2 {
 		t.Fatalf("body len=%d want 2: %+v", len(doc.Body), doc.Body)
 	}

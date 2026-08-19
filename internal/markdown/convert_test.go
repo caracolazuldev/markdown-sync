@@ -275,6 +275,17 @@ func TestFromMarkdown_PreservesInlineFormatting(t *testing.T) {
 	}
 }
 
+func TestFromMarkdown_PreservesStrikethrough(t *testing.T) {
+	v, err := FromMarkdown("Hello ~~strike~~\n")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	p := v.(*Document).Body[0].(Paragraph)
+	if p.Text != "Hello ~~strike~~" {
+		t.Fatalf("strikethrough not preserved: got %q", p.Text)
+	}
+}
+
 func TestFromMarkdown_TablePreservesInlineFormatting(t *testing.T) {
 	input := "| Col |\n| --- |\n| **bold** |\n"
 	v, err := FromMarkdown(input)

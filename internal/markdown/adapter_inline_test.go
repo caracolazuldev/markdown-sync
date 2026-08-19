@@ -39,6 +39,21 @@ func TestParseInline_GoldmarkSpans(t *testing.T) {
 	}
 }
 
+func TestParseInline_Strikethrough(t *testing.T) {
+	clean, spans := parseInline("→ ~~strike~~")
+	if clean != "→ strike" {
+		t.Fatalf("clean=%q", clean)
+	}
+	sp, ok := spanOf(spans, "strike")
+	if !ok {
+		t.Fatal("missing strike span")
+	}
+	wantOff := int(utf16Len("→ "))
+	if sp.Offset != wantOff || sp.Length != int(utf16Len("strike")) {
+		t.Fatalf("strike span offset=%d length=%d want offset=%d length=%d", sp.Offset, sp.Length, wantOff, utf16Len("strike"))
+	}
+}
+
 func TestParseInline_UTF16OffsetAfterArrow(t *testing.T) {
 	clean, spans := parseInline("Committee → **Home**")
 	if clean != "Committee → Home" {

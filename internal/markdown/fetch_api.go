@@ -188,6 +188,7 @@ type runStyle struct {
 	bold   bool
 	italic bool
 	code   bool
+	strike bool
 	link   string
 }
 
@@ -227,7 +228,7 @@ func styleFromTextStyle(ts *docs.TextStyle) runStyle {
 	if ts == nil {
 		return runStyle{}
 	}
-	st := runStyle{bold: ts.Bold, italic: ts.Italic}
+	st := runStyle{bold: ts.Bold, italic: ts.Italic, strike: ts.Strikethrough}
 	if ts.WeightedFontFamily != nil && ts.WeightedFontFamily.FontFamily == "Courier New" {
 		st.code = true
 	}
@@ -267,6 +268,9 @@ func wrapStyledSegment(content string, st runStyle) string {
 	} else if st.italic {
 		inner = "*" + inner + "*"
 	}
+	if st.strike {
+		inner = "~~" + inner + "~~"
+	}
 	if st.link != "" {
 		inner = "[" + inner + "](" + st.link + ")"
 	}
@@ -277,7 +281,7 @@ func escapeMarkdownPunctuation(s string) string {
 	var b strings.Builder
 	for _, r := range s {
 		switch r {
-		case '\\', '*', '_', '`', '[', ']':
+		case '\\', '*', '_', '`', '~', '[', ']':
 			b.WriteByte('\\')
 		}
 		b.WriteRune(r)

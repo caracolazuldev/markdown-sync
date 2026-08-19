@@ -14,6 +14,7 @@ Supported elements
   - Bold+italic ↔ `***text***`
   - Inline code ↔ `` `text` `` (Docs: Courier New)
   - Links ↔ `[text](url)`
+  - Strikethrough ↔ `~~text~~`
 - Hard line breaks (trailing two spaces) ↔ Docs shift+enter (U+000B) in both directions. Soft breaks stay spaces. Only explicit U+000B becomes a hard break on export; wrap-width is not reconstructed.
 - Code blocks → fenced code blocks with language where available (import)
 - Images → saved to an `assets/` folder; referenced by relative paths in Markdown (import)
@@ -35,7 +36,7 @@ Unsupported / Limitations
 -------------------------
 - Complex layout elements (textboxes, positioned images) are not preserved.
 - Comments and suggestions are not mapped in v0.1 (future work).
-- Strikethrough, underline, subscript, and superscript are not mapped.
+- Underline, subscript, and superscript are not mapped.
 - `export` does not flatten tabbed documents; use `track`.
 - `track` does not push Markdown back to Docs (see ADR-2026-08-13-track).
 - Block-level export maps Docs bullets to Markdown list items (`- ` / `1. `, nested by `NestingLevel`). Heading style wins if a paragraph is both a heading and a bullet.
@@ -45,4 +46,4 @@ Round-trip / determinism
 ------------------------
 1:1 mapping is designed to be idempotent: repeated export of the same single-tab document yields the same Markdown (modulo non-deterministic metadata like timestamps). `track` refreshes from Docs; local edits are dirty unless `--force`.
 
-Inline bold, italic, code, and links round-trip through Docs `TextStyle` as markdown markers in heading/paragraph/table-cell text. Unstyled `*`, `_`, backticks, and brackets are escaped on export so a later import does not invent styles. Docs API indexes are UTF-16 code units; import applies inline styles using those units so non-ASCII text does not shift later spans.
+Inline bold, italic, code, strikethrough, and links round-trip through Docs `TextStyle` as markdown markers in heading/paragraph/table-cell text. Unstyled `*`, `_`, backticks, and brackets are escaped on export so a later import does not invent styles. Docs API indexes are UTF-16 code units; import applies inline styles using those units so non-ASCII text does not shift later spans.

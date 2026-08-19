@@ -117,6 +117,32 @@ func TestBuildDocsRequests_ParagraphInlineStyles(t *testing.T) {
 	}
 }
 
+func TestBuildDocsRequests_Strikethrough(t *testing.T) {
+	v, err := FromMarkdown("Hello ~~strike~~\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown: %v", err)
+	}
+	reqs, err := buildDocsRequests("", v.(*Document))
+	if err != nil {
+		t.Fatalf("buildDocsRequests: %v", err)
+	}
+	var hasStrike bool
+	for _, r := range reqs {
+		if r.UpdateTextStyle != nil && r.UpdateTextStyle.TextStyle != nil && r.UpdateTextStyle.TextStyle.Strikethrough {
+			hasStrike = true
+			start := r.UpdateTextStyle.Range.StartIndex
+			end := r.UpdateTextStyle.Range.EndIndex
+			wantStart := int64(1) + utf16Len("Hello ")
+			if start != wantStart || end != wantStart+utf16Len("strike") {
+				t.Fatalf("strike range [%d,%d) want [%d,%d)", start, end, wantStart, wantStart+utf16Len("strike"))
+			}
+		}
+	}
+	if !hasStrike {
+		t.Fatal("missing strikethrough UpdateTextStyle")
+	}
+}
+
 func TestBuildDocsRequests_HeadingInlineStyles(t *testing.T) {
 	v, err := FromMarkdown("# Title with **bold**\n")
 	if err != nil {

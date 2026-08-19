@@ -188,7 +188,7 @@ func ToMarkdown(doc interface{}) (string, error) {
 // workflows will add parsing as needed.
 func FromMarkdown(md string) (interface{}, error) {
 	clean, title := stripFrontMatter(md)
-	mdp := goldmark.New(goldmark.WithExtensions(extension.Table))
+	mdp := goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough))
 	parser := mdp.Parser()
 	docNode := parser.Parse(text.NewReader([]byte(clean)))
 
@@ -318,6 +318,10 @@ func extractText(n ast.Node, source []byte) string {
 				sb.WriteByte('(')
 				sb.Write(v.Destination)
 				sb.WriteByte(')')
+			case *extast.Strikethrough:
+				sb.WriteString("~~")
+				walk(v)
+				sb.WriteString("~~")
 			default:
 				walk(v)
 			}

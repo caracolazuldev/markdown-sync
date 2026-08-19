@@ -11,6 +11,8 @@ import (
 	gauth "github.com/caracolazuldev/gdocs-markdown-sync/internal/google"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/text"
 	docs "google.golang.org/api/docs/v1"
 	"google.golang.org/api/option"
@@ -413,6 +415,12 @@ func appendInlineStyleRequests(reqs []*docs.Request, textStart int64, clean stri
 				TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
 				Fields:    "link",
 			}})
+		case "strike":
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+				TextStyle: &docs.TextStyle{Strikethrough: true},
+				Fields:    "strikethrough",
+			}})
 		}
 	}
 	return reqs
@@ -421,7 +429,7 @@ func appendInlineStyleRequests(reqs []*docs.Request, textStart int64, clean stri
 type inlineSpan struct {
 	Offset int
 	Length int
-	Kind   string // "bold", "italic", "code", "link"
+	Kind   string // "bold", "italic", "code", "link", "strike"
 	Data   string // for link: URL
 }
 
@@ -429,13 +437,14 @@ type inlineStyleState struct {
 	bold   bool
 	italic bool
 	code   bool
+	strike bool
 	link   string
 }
 
 // parseInline parses inline markdown using Goldmark and returns cleaned text
 // plus style spans to apply in Google Docs.
 func parseInline(s string) (string, []inlineSpan) {
-	parser := goldmark.DefaultParser()
+	parser := goldmark.New(goldmark.WithExtensions(extension.Strikethrough)).Parser()
 	root := parser.Parse(text.NewReader([]byte(s)))
 	source := []byte(s)
 	var out strings.Builder
@@ -461,6 +470,9 @@ func parseInline(s string) (string, []inlineSpan) {
 		}
 		if st.link != "" {
 			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "link", Data: st.link})
+		}
+		if st.strike {
+			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "strike"})
 		}
 	}
 
@@ -493,6 +505,10 @@ func parseInline(s string) (string, []inlineSpan) {
 			case *ast.Link:
 				next := st
 				next.link = string(v.Destination)
+				walkInline(v, next)
+			case *extast.Strikethrough:
+				next := st
+				next.strike = true
 				walkInline(v, next)
 			default:
 				walkInline(v, st)

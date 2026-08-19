@@ -51,6 +51,16 @@ func TestParagraphText_MergesAdjacentSameStyle(t *testing.T) {
 	}
 }
 
+func TestParagraphText_Strikethrough(t *testing.T) {
+	p := &docs.Paragraph{Elements: []*docs.ParagraphElement{
+		{TextRun: &docs.TextRun{Content: "strike", TextStyle: &docs.TextStyle{Strikethrough: true}}},
+	}}
+	got := paragraphText(p)
+	if got != "~~strike~~" {
+		t.Fatalf("paragraphText=%q want %q", got, "~~strike~~")
+	}
+}
+
 func TestParagraphText_EscapesUnstyledPunctuation(t *testing.T) {
 	p := &docs.Paragraph{Elements: []*docs.ParagraphElement{
 		{TextRun: &docs.TextRun{Content: "*not-bold*"}},

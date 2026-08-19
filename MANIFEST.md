@@ -63,6 +63,7 @@ Supporting Documents (drafts)
  - agents/references/design-patterns.md — project-relevant design patterns and practical notes.
  - docs/testing.md — testing strategy and CI gating for integration tests.
  - agents/ — AI coding agent resources (skills, workflows, references). See agents/index.yaml for discovery.
+ - AGENTS.md — cross-tool agent instructions (devcontainer-only toolchain).
 
 Roadmap and Next Work
 ----------------------
@@ -80,6 +81,7 @@ Owner: repository maintainer (TBD)
 Decisions
 ---------
 - See `docs/decisions.md` for recorded architecture and business-logic decisions; PRs updating architecture or business logic must add or update a decision record.
+- ADR-2026-08-18-devcontainer-toolchain — agents use `.devcontainer/Dockerfile`; do not install Go on the host.
 - ADR-2026-08-13-track — one-way `track`; `export` fails on tabbed Docs.
 - APP-2026-08-13-tab-paths — tab tree to nested folder paths.
 - Product spec: `Missives/2026-08-13-spec-track-tabbed-docs.md` (references the decline missive; does not amend it).

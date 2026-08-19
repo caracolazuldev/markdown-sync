@@ -14,5 +14,5 @@ pre_commit_checks:
   - name: test
     cmd: make test
   - name: staticcheck
-    cmd: staticcheck ./...
+    cmd: make lint
 approval_required: true

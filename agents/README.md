@@ -8,6 +8,10 @@ This folder contains curated resources for AI coding agents used by the project.
 
 See `MANIFEST.md` for discovery rules.
 
+Toolchain
+---------
+Agents must use the image from `.devcontainer/Dockerfile` for build, test, and lint. Do not install Go on the host. See root `AGENTS.md` and skill `run-in-devcontainer`.
+
 
 
 Automation policy and commit behavior

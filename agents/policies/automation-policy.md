@@ -7,7 +7,7 @@ Effective rules for automated tools and AI assistants operating on this reposito
 - Automation SHOULD create and operate on a feature branch (naming convention: `feature/*`, `fix/*`, `chore/*`) when feasible.
 - If the assistant or automation is operating in the context of a protected branch (for example, `main`) and a feature branch was not created, the assistant MUST pause and ask a human to review and perform the commit/push/merge on the protected branch unless explicitly instructed to create and use a feature branch.
 - All changes to `go.mod`/`go.sum` should be prepared on the feature branch and included in the PR.
-- Automation must run tests (`make test`) and static analysis (`staticcheck`) locally before opening a PR or requesting a human to commit on a protected branch.
+- Automation must run tests (`make test`) and static analysis (`make lint`) via the `.devcontainer` image before opening a PR or requesting a human to commit on a protected branch. Do not install Go or `staticcheck` on the host.
 - Automation must not push or merge without an explicit human approval recorded in the PR.
 
 

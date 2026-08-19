@@ -2,6 +2,22 @@
 
 This file records architecture decisions and business-logic rationales. Each entry should follow the Decision record format described in `docs/architecture-policy.md`.
 
+- id: ADR-2026-08-18-devcontainer-toolchain
+- title: Devcontainer image is the only supported agent toolchain; do not install Go on the host
+- date: 2026-08-18
+- author: repo-maintainer
+- decision: Coding agents (any host OS) must build, test, and lint using the image from `.devcontainer/Dockerfile`. They must not install Go or staticcheck on the host. Host `make test` / `make lint` / `make build` wrap Docker unless already inside the container. Cross-tool instructions live in `AGENTS.md`; Cursor also has `.cursor/rules/dev-environment.mdc` and `.cursor/skills/run-in-devcontainer`.
+- rationale: Agents were installing host Go because `agents/` is not auto-loaded by Cursor/Copilot/Claude Code and `run-tests` required `go` on PATH. The Dockerfile already pins Go 1.24 and tools; using it keeps toolchains identical across Linux, macOS, and Windows (Docker Desktop).
+- alternatives: Optional host Go for agents (rejected; diverges from the pinned image). Dev Containers CLI as the only runner (rejected; not installed on most agent hosts). Makefile wrapping Docker only for a separate `docker-test` target (rejected; agents would still run `make test` / `go test` on the host).
+- impact: Makefile `docker-image`/`docker-run`; `AGENTS.md`; Cursor rule and skill; `agents/skills/run-in-devcontainer`; rewritten `run-tests`; CONTRIBUTING, README, docs/testing.md. CI continues to use `actions/setup-go` and does not call `make test`.
+- reassessment_triggers:
+  - Dev Containers CLI is universally available to agents
+  - CI switched to the same Dockerfile
+  - Docker is unavailable on a required agent host
+- links:
+  - Dockerfile: `.devcontainer/Dockerfile`
+  - Agent instructions: `AGENTS.md`
+
 - id: ADR-2026-08-13-track
 - title: One-way `track` for tabbed Docs; `export` stays 1:1 and fails closed
 - date: 2026-08-13

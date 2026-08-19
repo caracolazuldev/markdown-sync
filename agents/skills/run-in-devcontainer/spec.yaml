@@ -1,0 +1,25 @@
+name: run-in-devcontainer
+description: Run a command in the .devcontainer image; never install Go on the host
+inputs:
+  cmd:
+    type: string
+    description: command to run in /workspace (e.g. go test ./...)
+    required: true
+outputs:
+  status:
+    type: string
+    description: 'ok or fail'
+  logs:
+    type: string
+preconditions:
+  - repository root is present
+  - Docker Engine or Docker Desktop is available on the host, unless already inside the devcontainer
+run:
+  - cmd: make docker-run CMD='$cmd'
+    cwd: $REPO_ROOT
+    when: not in container
+  - cmd: $cmd
+    cwd: $REPO_ROOT
+    when: in container (/.dockerenv or DEVCONTAINER=true)
+forbidden:
+  - installing Go or staticcheck on the host

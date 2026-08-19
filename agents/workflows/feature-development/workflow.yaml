@@ -13,12 +13,14 @@ steps:
     skill: run-tests
   - id: tidy
     title: Update modules
-    action: go mod tidy
+    action: make tidy
+    skill: run-in-devcontainer
   - id: docs
     title: Update docs and references
   - id: staticcheck
     title: Run static analysis
-    action: staticcheck ./...
+    action: make lint
+    skill: run-in-devcontainer
   - id: pr
     title: Prepare PR with reflection
     outputs:

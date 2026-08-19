@@ -1,5 +1,5 @@
 name: run-tests
-description: Run test suite and return structured results
+description: Run test suite in the devcontainer image and return structured results
 inputs:
   packages:
     type: array
@@ -19,7 +19,9 @@ outputs:
     type: string
 preconditions:
   - repository root is present
-  - `make` or `go` is available in PATH
+  - Docker Engine or Docker Desktop is available on the host, unless already inside the devcontainer
+depends_on:
+  - run-in-devcontainer
 run:
   - cmd: make test
     cwd: $REPO_ROOT

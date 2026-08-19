@@ -4,4 +4,9 @@ Synchronize Markdown documents with Google Docs. Intended to facilitate collabor
 
 ## Development container
 
-The development container uses Go 1.24. Rebuild your dev container after pulling changes to ensure the correct Go toolchain is used.
+The supported toolchain is the image in [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile) (Go 1.24). Docker Engine or Docker Desktop is required. Coding agents must use this image and must not install Go on the host; see [`AGENTS.md`](AGENTS.md).
+
+Rebuild the container after pulling toolchain changes:
+
+- VS Code / Cursor: Command Palette → Dev Containers: Rebuild Container.
+- Host Make (wraps Docker): `make test`, `make lint`, `make build`.

@@ -24,4 +24,5 @@ CI
 
 Local dev
 ---------
-- For local integration testing, set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON and use `go test -tags=integration ./...`.
+- Unit tests: `make test` (Docker via `.devcontainer/Dockerfile` on the host; native `go test ./...` when already inside the container). Agents must not install Go on the host; see `AGENTS.md`.
+- For local integration testing, set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON and run `go test -tags=integration ./...` **inside the container** (or `make docker-run CMD='go test -tags=integration ./...'` on the host).

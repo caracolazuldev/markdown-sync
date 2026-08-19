@@ -3,8 +3,8 @@
 After implementing a feature or fix, agents (and maintainers) should run this checklist and record brief answers in the PR description or a follow-up issue.
 
 1. Tests and checks
-   - Did `make test` pass? (yes/no)
-   - Did `staticcheck` pass? (yes/no)
+   - Did `make test` pass (via the devcontainer image unless already in the container)? (yes/no)
+   - Did `make lint` pass? (yes/no)
 
 2. Scope & acceptance
    - Does the change satisfy the acceptance criteria? (brief)

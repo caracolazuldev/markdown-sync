@@ -179,3 +179,23 @@ func TestParagraphText_RoundTripInlineStyles(t *testing.T) {
 		t.Fatalf("missing styles after round-trip: bold=%v italic=%v code=%v link=%v", foundBold, foundItalic, foundCode, foundLink)
 	}
 }
+
+func TestParagraphText_HardLineBreak(t *testing.T) {
+	p := &docs.Paragraph{Elements: []*docs.ParagraphElement{
+		{TextRun: &docs.TextRun{Content: "a\u000bHome\n"}},
+	}}
+	got := paragraphText(p)
+	if got != "a  \nHome" {
+		t.Fatalf("paragraphText=%q want %q", got, "a  \nHome")
+	}
+}
+
+func TestParagraphText_HardLineBreakSplitsStyledWrap(t *testing.T) {
+	p := &docs.Paragraph{Elements: []*docs.ParagraphElement{
+		{TextRun: &docs.TextRun{Content: "one\u000btwo", TextStyle: &docs.TextStyle{Bold: true}}},
+	}}
+	got := paragraphText(p)
+	if got != "**one**  \n**two**" {
+		t.Fatalf("paragraphText=%q want %q", got, "**one**  \n**two**")
+	}
+}

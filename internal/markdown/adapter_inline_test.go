@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -36,4 +37,79 @@ func TestParseInline_GoldmarkSpans(t *testing.T) {
 	if !foundBold || !foundItalic || !foundCode || !foundLink {
 		t.Fatalf("missing styles: bold=%v italic=%v code=%v link=%v", foundBold, foundItalic, foundCode, foundLink)
 	}
+}
+
+func TestParseInline_UTF16OffsetAfterArrow(t *testing.T) {
+	clean, spans := parseInline("Committee → **Home**")
+	if clean != "Committee → Home" {
+		t.Fatalf("clean=%q", clean)
+	}
+	sp, ok := spanOf(spans, "bold")
+	if !ok {
+		t.Fatal("missing bold span")
+	}
+	wantOff := int(utf16Len("Committee → "))
+	if sp.Offset != wantOff || sp.Length != int(utf16Len("Home")) {
+		t.Fatalf("bold span offset=%d length=%d want offset=%d length=%d", sp.Offset, sp.Length, wantOff, utf16Len("Home"))
+	}
+}
+
+func TestParseInline_UTF16OffsetAfterCurlyQuotes(t *testing.T) {
+	clean, spans := parseInline("“” **after**")
+	if clean != "“” after" {
+		t.Fatalf("clean=%q", clean)
+	}
+	sp, ok := spanOf(spans, "bold")
+	if !ok {
+		t.Fatal("missing bold span")
+	}
+	wantOff := int(utf16Len("“” "))
+	if sp.Offset != wantOff || sp.Length != int(utf16Len("after")) {
+		t.Fatalf("bold span offset=%d length=%d want offset=%d length=%d", sp.Offset, sp.Length, wantOff, utf16Len("after"))
+	}
+}
+
+func TestParseInline_UTF16OffsetAfterEmoji(t *testing.T) {
+	clean, spans := parseInline("😀 **x**")
+	if clean != "😀 x" {
+		t.Fatalf("clean=%q", clean)
+	}
+	sp, ok := spanOf(spans, "bold")
+	if !ok {
+		t.Fatal("missing bold span")
+	}
+	wantOff := int(utf16Len("😀 "))
+	if wantOff != 3 {
+		t.Fatalf("emoji prefix utf16=%d want 3", wantOff)
+	}
+	if sp.Offset != wantOff || sp.Length != 1 {
+		t.Fatalf("bold span offset=%d length=%d want offset=%d length=1", sp.Offset, sp.Length, wantOff)
+	}
+}
+
+func TestParseInline_HardLineBreakIsVerticalTab(t *testing.T) {
+	clean, spans := parseInline("a  \n**Home**")
+	if clean != "a\u000bHome" {
+		t.Fatalf("clean=%q want %q", clean, "a\u000bHome")
+	}
+	if strings.Contains(clean, "\n") {
+		t.Fatal("hard break must not become a paragraph newline")
+	}
+	sp, ok := spanOf(spans, "bold")
+	if !ok {
+		t.Fatal("missing bold span")
+	}
+	wantOff := int(utf16Len("a\u000b"))
+	if sp.Offset != wantOff || sp.Length != 4 {
+		t.Fatalf("bold span offset=%d length=%d want offset=%d length=4", sp.Offset, sp.Length, wantOff)
+	}
+}
+
+func spanOf(spans []inlineSpan, kind string) (inlineSpan, bool) {
+	for _, sp := range spans {
+		if sp.Kind == kind {
+			return sp, true
+		}
+	}
+	return inlineSpan{}, false
 }

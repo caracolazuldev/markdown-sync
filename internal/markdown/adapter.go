@@ -134,9 +134,6 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 	// We'll insert each element's text and, for headings, add an UpdateParagraphStyle request.
 	var currIndex int64 = 1
 
-	utf16Len := func(s string) int64 {
-		return int64(len(utf16.Encode([]rune(s))))
-	}
 	appendInsert := func(text string) int64 {
 		// create InsertText request at current index
 		r := &docs.Request{InsertText: &docs.InsertTextRequest{Text: text, Location: &docs.Location{Index: currIndex}}}
@@ -147,40 +144,7 @@ func buildDocsRequests(mdText string, doc *Document) ([]*docs.Request, error) {
 		return currIndex - length
 	}
 	appendInlineStyleReqs := func(textStart int64, clean string, spans []inlineSpan) {
-		for _, sp := range spans {
-			runes := []rune(clean)
-			if sp.Offset < 0 || sp.Offset+sp.Length > len(runes) {
-				continue
-			}
-			s := textStart + utf16Len(string(runes[:sp.Offset]))
-			eidx := s + utf16Len(string(runes[sp.Offset : sp.Offset+sp.Length]))
-			switch sp.Kind {
-			case "bold":
-				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-					TextStyle: &docs.TextStyle{Bold: true},
-					Fields:    "bold",
-				}})
-			case "italic":
-				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-					TextStyle: &docs.TextStyle{Italic: true},
-					Fields:    "italic",
-				}})
-			case "code":
-				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-					TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
-					Fields:    "weightedFontFamily",
-				}})
-			case "link":
-				reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-					Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
-					TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
-					Fields:    "link",
-				}})
-			}
-		}
+		reqs = appendInlineStyleRequests(reqs, textStart, clean, spans)
 	}
 	appendTextWithSpans := func(prefix, txt string) {
 		clean, spans := parseInline(txt)
@@ -389,36 +353,7 @@ func buildNativeTableFillRequests(modelTables []Table, remote *docs.Document) []
 						Text:     clean,
 					},
 				}}
-				for _, sp := range spans {
-					start := idx + int64(sp.Offset)
-					end := start + int64(sp.Length)
-					switch sp.Kind {
-					case "bold":
-						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: start, EndIndex: end},
-							TextStyle: &docs.TextStyle{Bold: true},
-							Fields:    "bold",
-						}})
-					case "italic":
-						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: start, EndIndex: end},
-							TextStyle: &docs.TextStyle{Italic: true},
-							Fields:    "italic",
-						}})
-					case "code":
-						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: start, EndIndex: end},
-							TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
-							Fields:    "weightedFontFamily",
-						}})
-					case "link":
-						cellReqs = append(cellReqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
-							Range:     &docs.Range{StartIndex: start, EndIndex: end},
-							TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
-							Fields:    "link",
-						}})
-					}
-				}
+				cellReqs = appendInlineStyleRequests(cellReqs, idx, clean, spans)
 				pending = append(pending, indexedReq{
 					index: idx,
 					reqs:  cellReqs,
@@ -439,6 +374,48 @@ func buildNativeTableFillRequests(modelTables []Table, remote *docs.Document) []
 		requests = append(requests, p.reqs...)
 	}
 	return requests
+}
+
+func utf16Len(s string) int64 {
+	return int64(len(utf16.Encode([]rune(s))))
+}
+
+func appendInlineStyleRequests(reqs []*docs.Request, textStart int64, clean string, spans []inlineSpan) []*docs.Request {
+	limit := utf16Len(clean)
+	for _, sp := range spans {
+		if sp.Offset < 0 || int64(sp.Offset)+int64(sp.Length) > limit {
+			continue
+		}
+		s := textStart + int64(sp.Offset)
+		eidx := s + int64(sp.Length)
+		switch sp.Kind {
+		case "bold":
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+				TextStyle: &docs.TextStyle{Bold: true},
+				Fields:    "bold",
+			}})
+		case "italic":
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+				TextStyle: &docs.TextStyle{Italic: true},
+				Fields:    "italic",
+			}})
+		case "code":
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+				TextStyle: &docs.TextStyle{WeightedFontFamily: &docs.WeightedFontFamily{FontFamily: "Courier New"}},
+				Fields:    "weightedFontFamily",
+			}})
+		case "link":
+			reqs = append(reqs, &docs.Request{UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Range:     &docs.Range{StartIndex: s, EndIndex: eidx},
+				TextStyle: &docs.TextStyle{Link: &docs.Link{Url: sp.Data}},
+				Fields:    "link",
+			}})
+		}
+	}
+	return reqs
 }
 
 type inlineSpan struct {
@@ -463,14 +440,16 @@ func parseInline(s string) (string, []inlineSpan) {
 	source := []byte(s)
 	var out strings.Builder
 	var spans []inlineSpan
+	var utf16Off int
 
 	addText := func(val string, st inlineStyleState) {
 		if val == "" {
 			return
 		}
-		off := out.Len()
+		off := utf16Off
 		out.WriteString(val)
-		length := len(val)
+		length := int(utf16Len(val))
+		utf16Off += length
 		if st.bold {
 			spans = append(spans, inlineSpan{Offset: off, Length: length, Kind: "bold"})
 		}
@@ -491,7 +470,9 @@ func parseInline(s string) (string, []inlineSpan) {
 			switch v := c.(type) {
 			case *ast.Text:
 				addText(string(v.Segment.Value(source)), st)
-				if v.SoftLineBreak() || v.HardLineBreak() {
+				if v.HardLineBreak() {
+					addText("\u000b", st)
+				} else if v.SoftLineBreak() {
 					addText(" ", st)
 				}
 			case *ast.String:

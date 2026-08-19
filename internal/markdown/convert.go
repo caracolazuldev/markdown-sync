@@ -89,17 +89,17 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 		sb.WriteString("---\n")
 		if doc.Title != "" {
 			sb.WriteString("title: ")
-			sb.WriteString(escapeString(doc.Title))
+			sb.WriteString(escapeYAML(doc.Title))
 			sb.WriteString("\n")
 		}
 		if doc.DocID != "" {
 			sb.WriteString("doc_id: ")
-			sb.WriteString(escapeString(doc.DocID))
+			sb.WriteString(escapeYAML(doc.DocID))
 			sb.WriteString("\n")
 		}
 		if doc.TabID != "" {
 			sb.WriteString("tab_id: ")
-			sb.WriteString(escapeString(doc.TabID))
+			sb.WriteString(escapeYAML(doc.TabID))
 			sb.WriteString("\n")
 		}
 		if doc.Track {
@@ -115,10 +115,10 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			}
 			sb.WriteString(strings.Repeat("#", v.Level))
 			sb.WriteString(" ")
-			sb.WriteString(escapeString(v.Text))
+			sb.WriteString(v.Text)
 			sb.WriteString("\n\n")
 		case Paragraph:
-			sb.WriteString(escapeString(v.Text))
+			sb.WriteString(v.Text)
 			sb.WriteString("\n\n")
 		case CodeBlock:
 			sb.WriteString("```")
@@ -130,7 +130,7 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			sb.WriteString("\n```\n\n")
 		case Image:
 			sb.WriteString("![")
-			sb.WriteString(escapeString(v.Alt))
+			sb.WriteString(escapeYAML(v.Alt))
 			sb.WriteString("](")
 			sb.WriteString(v.URL)
 			sb.WriteString(")\n\n")
@@ -143,11 +143,11 @@ func DocumentToMarkdown(doc *Document) (string, error) {
 			} else {
 				sb.WriteString("- ")
 			}
-			sb.WriteString(escapeString(v.Text))
+			sb.WriteString(v.Text)
 			sb.WriteString("\n")
 		case Quote:
 			sb.WriteString("> ")
-			sb.WriteString(escapeString(v.Text))
+			sb.WriteString(v.Text)
 			sb.WriteString("\n\n")
 		case HorizontalRule:
 			sb.WriteString("---\n\n")
@@ -168,8 +168,7 @@ func hasFrontMatter(doc *Document) bool {
 	return doc.Title != "" || doc.DocID != "" || doc.TabID != "" || doc.Track
 }
 
-func escapeString(s string) string {
-	// minimal escaping for yaml/newlines in title; extend as needed
+func escapeYAML(s string) string {
 	return strings.ReplaceAll(s, "\n", " ")
 }
 
@@ -298,6 +297,11 @@ func extractText(n ast.Node, source []byte) string {
 			switch v := c.(type) {
 			case *ast.Text:
 				sb.Write(v.Segment.Value(source))
+				if v.HardLineBreak() {
+					sb.WriteString("  \n")
+				} else if v.SoftLineBreak() {
+					sb.WriteByte(' ')
+				}
 			case *ast.CodeSpan:
 				sb.WriteByte('`')
 				sb.Write(v.Text(source))

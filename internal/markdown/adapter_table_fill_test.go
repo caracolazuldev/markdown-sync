@@ -74,6 +74,28 @@ func TestBuildNativeTableFillRequests_InlineStyles(t *testing.T) {
 	}
 }
 
+func TestBuildNativeTableFillRequests_UTF16BoldRangeAfterArrow(t *testing.T) {
+	model := []Table{{
+		Header: []string{"→ **X**"},
+	}}
+	remote := &docs.Document{
+		Body: &docs.Body{Content: []*docs.StructuralElement{
+			{Table: &docs.Table{TableRows: []*docs.TableRow{
+				{TableCells: []*docs.TableCell{{StartIndex: 10}}},
+			}}},
+		}},
+	}
+	reqs := buildNativeTableFillRequests(model, remote)
+	start, end, ok := firstBoldRange(reqs)
+	if !ok {
+		t.Fatal("missing bold fill style")
+	}
+	wantStart := int64(11) + utf16Len("→ ")
+	if start != wantStart || end != wantStart+1 {
+		t.Fatalf("bold range [%d,%d) want [%d,%d)", start, end, wantStart, wantStart+1)
+	}
+}
+
 func TestNativeTablesFromDocument(t *testing.T) {
 	doc := &Document{Body: []Element{
 		Paragraph{Text: "x"},

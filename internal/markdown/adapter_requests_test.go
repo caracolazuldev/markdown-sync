@@ -144,6 +144,106 @@ func TestBuildDocsRequests_HeadingInlineStyles(t *testing.T) {
 	}
 }
 
+func TestBuildDocsRequests_UTF16BoldRangeAfterArrow(t *testing.T) {
+	v, err := FromMarkdown("Committee → **Home**\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown: %v", err)
+	}
+	reqs, err := buildDocsRequests("", v.(*Document))
+	if err != nil {
+		t.Fatalf("buildDocsRequests: %v", err)
+	}
+	start, end, ok := firstBoldRange(reqs)
+	if !ok {
+		t.Fatal("missing bold UpdateTextStyle")
+	}
+	wantStart := int64(1) + utf16Len("Committee → ")
+	wantEnd := wantStart + utf16Len("Home")
+	if start != wantStart || end != wantEnd {
+		t.Fatalf("bold range [%d,%d) want [%d,%d)", start, end, wantStart, wantEnd)
+	}
+}
+
+func TestBuildDocsRequests_UTF16BoldRangeAfterEmoji(t *testing.T) {
+	v, err := FromMarkdown("😀 **x**\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown: %v", err)
+	}
+	reqs, err := buildDocsRequests("", v.(*Document))
+	if err != nil {
+		t.Fatalf("buildDocsRequests: %v", err)
+	}
+	start, end, ok := firstBoldRange(reqs)
+	if !ok {
+		t.Fatal("missing bold UpdateTextStyle")
+	}
+	wantStart := int64(1) + utf16Len("😀 ")
+	if start != wantStart || end != wantStart+1 {
+		t.Fatalf("bold range [%d,%d) want [%d,%d)", start, end, wantStart, wantStart+1)
+	}
+}
+
+func TestBuildDocsRequests_HardLineBreakVerticalTab(t *testing.T) {
+	v, err := FromMarkdown("a  \n**Home**\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown: %v", err)
+	}
+	doc := v.(*Document)
+	p, ok := doc.Body[0].(Paragraph)
+	if !ok || p.Text != "a  \n**Home**" {
+		t.Fatalf("paragraph text=%#v", doc.Body[0])
+	}
+	reqs, err := buildDocsRequests("", doc)
+	if err != nil {
+		t.Fatalf("buildDocsRequests: %v", err)
+	}
+	var inserted string
+	for _, r := range reqs {
+		if r.InsertText != nil {
+			inserted += r.InsertText.Text
+		}
+	}
+	if inserted != "a\u000bHome\n" {
+		t.Fatalf("insert=%q want %q", inserted, "a\u000bHome\n")
+	}
+	start, end, ok := firstBoldRange(reqs)
+	if !ok {
+		t.Fatal("missing bold UpdateTextStyle")
+	}
+	wantStart := int64(1) + utf16Len("a\u000b")
+	if start != wantStart || end != wantStart+4 {
+		t.Fatalf("bold range [%d,%d) want [%d,%d)", start, end, wantStart, wantStart+4)
+	}
+}
+
+func TestBuildDocsRequests_HardBreakAfterArrowThenBold(t *testing.T) {
+	v, err := FromMarkdown("→  \n**Home**\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown: %v", err)
+	}
+	reqs, err := buildDocsRequests("", v.(*Document))
+	if err != nil {
+		t.Fatalf("buildDocsRequests: %v", err)
+	}
+	start, end, ok := firstBoldRange(reqs)
+	if !ok {
+		t.Fatal("missing bold UpdateTextStyle")
+	}
+	wantStart := int64(1) + utf16Len("→\u000b")
+	if start != wantStart || end != wantStart+4 {
+		t.Fatalf("bold range [%d,%d) want [%d,%d)", start, end, wantStart, wantStart+4)
+	}
+}
+
+func firstBoldRange(reqs []*docs.Request) (start, end int64, ok bool) {
+	for _, r := range reqs {
+		if r.UpdateTextStyle != nil && r.UpdateTextStyle.TextStyle != nil && r.UpdateTextStyle.TextStyle.Bold && r.UpdateTextStyle.Range != nil {
+			return r.UpdateTextStyle.Range.StartIndex, r.UpdateTextStyle.Range.EndIndex, true
+		}
+	}
+	return 0, 0, false
+}
+
 func TestBuildDocsRequests_TableNativeInsert(t *testing.T) {
 	doc := &Document{Body: []Element{
 		Table{Header: []string{"Name", "Value"}, Rows: [][]string{{"A", "1"}}},

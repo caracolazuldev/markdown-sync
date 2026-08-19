@@ -171,7 +171,7 @@ func paragraphText(p *docs.Paragraph) string {
 		if el == nil || el.TextRun == nil {
 			continue
 		}
-		content := strings.ReplaceAll(el.TextRun.Content, "\n", " ")
+		content := strings.ReplaceAll(el.TextRun.Content, "\n", "")
 		if content == "" {
 			continue
 		}
@@ -206,6 +206,17 @@ func styleFromTextStyle(ts *docs.TextStyle) runStyle {
 // styledRunToMarkdown encodes a Docs text run as inline markdown so re-import
 // via parseInline can recover bold, italic, code, and links.
 func styledRunToMarkdown(content string, st runStyle) string {
+	if content == "" {
+		return ""
+	}
+	parts := strings.Split(content, "\u000b")
+	for i, part := range parts {
+		parts[i] = wrapStyledSegment(part, st)
+	}
+	return strings.Join(parts, "  \n")
+}
+
+func wrapStyledSegment(content string, st runStyle) string {
 	if content == "" {
 		return ""
 	}

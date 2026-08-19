@@ -300,3 +300,28 @@ func TestFromMarkdown_ListItemPreservesInlineFormatting(t *testing.T) {
 		t.Fatalf("list item markers not preserved: got %q", li.Text)
 	}
 }
+
+func TestFromMarkdown_PreservesHardLineBreak(t *testing.T) {
+	v, err := FromMarkdown("a  \n**Home**\n")
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	p := v.(*Document).Body[0].(Paragraph)
+	if p.Text != "a  \n**Home**" {
+		t.Fatalf("hard break not preserved: got %q", p.Text)
+	}
+}
+
+func TestDocumentToMarkdown_PreservesHardLineBreak(t *testing.T) {
+	doc := &Document{Body: []Element{Paragraph{Text: "a  \nHome"}}}
+	got, err := DocumentToMarkdown(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "a  \nHome") {
+		t.Fatalf("hard break flattened: %q", got)
+	}
+	if strings.Contains(got, "a   Home") {
+		t.Fatalf("hard break became spaces: %q", got)
+	}
+}

@@ -9,4 +9,4 @@ The supported toolchain is the image in [`.devcontainer/Dockerfile`](.devcontain
 Rebuild the container after pulling toolchain changes:
 
 - VS Code / Cursor: Command Palette → Dev Containers: Rebuild Container.
-- Host Make (wraps Docker): `make test`, `make lint`, `make build`.
+- On the host: `make docker-run CMD='make test'` (plain `make test` errors unless you are in the container).

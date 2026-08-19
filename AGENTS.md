@@ -16,14 +16,20 @@ make lint
 make build
 ```
 
-**On the host** (any OS): `make test`, `make lint`, and `make build` wrap Docker. Prefer those. If `make` is unavailable (typical Windows PowerShell), use Docker directly:
+**On the host** (any OS): `make test` / `make lint` / `make build` fail on purpose. Use Docker:
+
+```sh
+make docker-run CMD='make test'
+make docker-run CMD='make lint'
+make docker-run CMD='make build'
+```
+
+If `make` is unavailable (typical Windows PowerShell):
 
 ```powershell
 docker build -t gdocs-markdown-sync:dev -f .devcontainer/Dockerfile .devcontainer
-docker run --rm -v "${PWD}:/workspace" -w /workspace -e GOCACHE=/tmp/go-cache -e GOMODCACHE=/tmp/gomod gdocs-markdown-sync:dev go test ./...
+docker run --rm -v "${PWD}:/workspace" -w /workspace -e GOCACHE=/tmp/go-cache -e GOMODCACHE=/tmp/gomod -e DEVCONTAINER=true gdocs-markdown-sync:dev make test
 ```
-
-Replace `go test ./...` with `staticcheck ./...` or `go build -v -o bin/gdocs-markdown-sync ./cmd/gdocs-markdown-sync` as needed.
 
 Do not attempt docker-in-docker from inside the attached container.
 

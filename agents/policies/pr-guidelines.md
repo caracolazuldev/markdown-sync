@@ -16,7 +16,7 @@ Sensitive files (example list)
 Procedure for contributors and agents
 1. If you change any file matching the sensitive list, add (on the feature branch) a decision (`ADR-...`) or approach (`APP-...`) record before opening the PR. If you are unsure whether the change is architectural (business logic) or algorithmic (technical approach), add both and link them.
 2. In the PR description include the ADR/APP id(s) and a one-line summary of the rationale.
-3. Run `make test` and `make lint` (devcontainer image on the host) and include a short test-results section in the PR description (pass/fail and any remaining issues).
+3. Run `make test` and `make lint` inside the container (from the host: `make docker-run CMD='make test'`) and include a short test-results section in the PR description (pass/fail and any remaining issues).
 4. Run the `agents/post_feature_checklist.md` and paste the checklist answers in the PR description.
 
 Suggested quick enforcement (manual or CI)

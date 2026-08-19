@@ -5,7 +5,7 @@ This document defines expectations for AI coding agents and automation operating
 Core principles
 - Human-in-the-loop: Agents must consult a human for actions that change protected branches or modify sensitive configuration (credentials, CI, release tags).
 - Least surprise: Changes should be minimal, well-explained, and reversible.
-- Test-before-request: Agents must run tests and static checks via `make test` and `make lint` (devcontainer image on the host; native only when already inside the container) before proposing changes. Do not install Go on the host.
+- Test-before-request: Agents must run tests and static checks inside the container (`make test`, `make lint`) or from the host via `make docker-run CMD='make test'`. Do not install Go on the host.
 - Document intent: Every proposed change must include a short intent statement and expected outcomes.
 
 Operational rules

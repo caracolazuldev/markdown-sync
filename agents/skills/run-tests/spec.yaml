@@ -25,3 +25,7 @@ depends_on:
 run:
   - cmd: make test
     cwd: $REPO_ROOT
+    when: in container
+  - cmd: make docker-run CMD='make test'
+    cwd: $REPO_ROOT
+    when: not in container

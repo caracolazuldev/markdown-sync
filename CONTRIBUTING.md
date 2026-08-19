@@ -10,7 +10,7 @@ Repository layout
 - `internal/sync` — Sync logic between Google Docs and markdown files.
 - `docs/` — Design and operational documentation.
 - `.devcontainer/` — Development container configuration (Dockerfile + devcontainer.json). This is the supported toolchain.
-- `Makefile` — Convenience tasks (setup, test, lint). On the host, Go targets run in the devcontainer image.
+- `Makefile` — Convenience tasks (setup, test, lint). Go targets require the container; from the host use `make docker-run CMD='make test'`.
 - `AGENTS.md` — Instructions for coding agents (container-only toolchain).
 
 Technology stack
@@ -21,12 +21,12 @@ Technology stack
 Developer environment setup
 1. Install Docker Engine or Docker Desktop. Rebuild the devcontainer after pulling changes to use the pinned Go toolchain and tools.
    - In VS Code / Cursor: Command Palette → Dev Containers: Rebuild Container.
-2. Useful commands (on the host these wrap Docker; inside the attached container they run natively):
-   - `make test` — run `go test ./...`.
-   - `make lint` — run `staticcheck ./...`.
-   - `make build` — build `bin/gdocs-markdown-sync`.
-   - `make tidy` — `go mod tidy`.
-   - `make docker-run CMD='...'` — run an arbitrary command in the image.
+2. Useful commands (inside the attached container they run natively; on the host Go targets error and tell you to use Docker):
+   - `make test` — run `go test ./...` (container only).
+   - `make lint` — run `staticcheck ./...` (container only).
+   - `make build` — build `bin/gdocs-markdown-sync` (container only).
+   - `make tidy` — `go mod tidy` (container only).
+   - `make docker-run CMD='make test'` — run a Make target in the image from the host.
 3. Host Go (human-only, optional): you may install Go 1.24+ yourself. **Agents must not** install Go on the host; see `AGENTS.md`.
 
 Developer workflow
@@ -41,14 +41,14 @@ Git & automation policy (strict)
   - Create and operate on a feature branch.
   - Not push or merge into `main` without explicit human approval.
   - Include `go.mod` and `go.sum` changes in the feature branch when adding dependencies.
-  - Use the `.devcontainer` image for `make test` / `make lint`; never install Go on the host.
+  - Use `make docker-run CMD='make test'` (and `make lint`) from the host, or run Make inside the attached container; never install Go on the host.
 
 Adding dependencies
-- On a feature branch, run `go get <pkg>@<version>` then `make tidy` (or `make docker-run CMD='go get ...'` on the host) and include `go.mod` and `go.sum` in the PR.
+- On a feature branch, run `go get <pkg>@<version>` then `make tidy` inside the container (from the host: `make docker-run CMD='go get ...'` then `make docker-run CMD='make tidy'`) and include `go.mod` and `go.sum` in the PR.
 
 Code quality & testing
-- Run `make lint` and add unit tests for new logic.
-- `make test` runs all unit tests; CI will also run tests on PRs.
+- Run `make lint` (or `make docker-run CMD='make lint'` from the host) and add unit tests for new logic.
+- `make test` runs all unit tests inside the container; CI will also run tests on PRs.
 
 Contact
 - If you're unsure about branching, tests, or releasing, open an issue or ask on the PR.

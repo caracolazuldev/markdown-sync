@@ -3,7 +3,7 @@
 After implementing a feature or fix, agents (and maintainers) should run this checklist and record brief answers in the PR description or a follow-up issue.
 
 1. Tests and checks
-   - Did `make test` pass (via the devcontainer image unless already in the container)? (yes/no)
+   - Did `make test` pass (in the container, or `make docker-run CMD='make test'` from the host)? (yes/no)
    - Did `make lint` pass? (yes/no)
 
 2. Scope & acceptance

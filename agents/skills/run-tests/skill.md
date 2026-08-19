@@ -15,7 +15,8 @@ Examples
   - `packages: ["./..."]`
 
 Expected behavior
-- Default command is `make test` from the repo root (on the host this wraps Docker; in the container it runs `go test ./...`).
+- In the container: `make test` (runs `go test ./...`).
+- On the host: `make docker-run CMD='make test'`. Do not run `make test` on the host (it errors) and do not install Go.
 - Optional `packages` maps to `go test <packages>` via `run-in-devcontainer`.
 - Capture exit status, standard output, and standard error.
 - Return a concise summary and identify the first failing package and stack trace.

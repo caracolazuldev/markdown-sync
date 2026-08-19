@@ -19,12 +19,12 @@ If in the container, run Make natively (`make test`, `make lint`, `make build`).
 
 ## On the host
 
-Prefer Make (it builds the image and bind-mounts the repo at `/workspace`):
+`make test` (and other Go targets) fail unless you are in the container. Run them via Docker:
 
 ```sh
-make test
-make lint
-make build
+make docker-run CMD='make test'
+make docker-run CMD='make lint'
+make docker-run CMD='make build'
 make docker-run CMD='go test ./internal/markdown'
 ```
 
@@ -32,7 +32,7 @@ If Make is unavailable:
 
 ```sh
 docker build -t gdocs-markdown-sync:dev -f .devcontainer/Dockerfile .devcontainer
-docker run --rm -v "$PWD:/workspace" -w /workspace -e GOCACHE=/tmp/go-cache -e GOMODCACHE=/tmp/gomod gdocs-markdown-sync:dev go test ./...
+docker run --rm -v "$PWD:/workspace" -w /workspace -e GOCACHE=/tmp/go-cache -e GOMODCACHE=/tmp/gomod -e DEVCONTAINER=true gdocs-markdown-sync:dev make test
 ```
 
 On Windows PowerShell use `${PWD}` instead of `$PWD`.
@@ -42,3 +42,4 @@ On Windows PowerShell use `${PWD}` instead of `$PWD`.
 - `brew` / `apt` / `choco` / `winget` install of Go
 - `go install` or downloading a Go toolchain onto the host
 - Treating a missing `go` binary as a problem to fix on the host
+- Running `make test` on the host and then installing Go to make it pass

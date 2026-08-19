@@ -12,7 +12,7 @@ on_protected_branch_ask_human: true
 enforcement_script: agents/scripts/guard_commit.sh
 pre_commit_checks:
   - name: test
-    cmd: make test
+    cmd: make docker-run CMD='make test'
   - name: staticcheck
-    cmd: make lint
+    cmd: make docker-run CMD='make lint'
 approval_required: true

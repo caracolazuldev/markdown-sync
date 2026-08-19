@@ -8,5 +8,5 @@ alwaysApply: true
 The supported toolchain is `.devcontainer/Dockerfile`. Docker is required on the host. Do not install Go or staticcheck on the host (`brew`, `apt`, `choco`, `winget`, `go install`).
 
 - If already in the container (`/.dockerenv` or `DEVCONTAINER=true`): run `make test`, `make lint`, `make build` natively.
-- On the host: those same Make targets wrap Docker. If `make` is missing, `docker build -t gdocs-markdown-sync:dev -f .devcontainer/Dockerfile .devcontainer` then `docker run --rm -v <repo>:/workspace -w /workspace gdocs-markdown-sync:dev <cmd>`.
-- Missing `go` on the host is expected. Follow [AGENTS.md](AGENTS.md) and `.cursor/skills/run-in-devcontainer`.
+- On the host those targets error. Use `make docker-run CMD='make test'` (or the equivalent `docker build` / `docker run` in [AGENTS.md](AGENTS.md)).
+- Missing `go` on the host is expected. Follow `.cursor/skills/run-in-devcontainer`.

@@ -6,10 +6,10 @@ This file records architecture decisions and business-logic rationales. Each ent
 - title: Devcontainer image is the only supported agent toolchain; do not install Go on the host
 - date: 2026-08-18
 - author: repo-maintainer
-- decision: Coding agents (any host OS) must build, test, and lint using the image from `.devcontainer/Dockerfile`. They must not install Go or staticcheck on the host. Host `make test` / `make lint` / `make build` wrap Docker unless already inside the container. Cross-tool instructions live in `AGENTS.md`; Cursor also has `.cursor/rules/dev-environment.mdc` and `.cursor/skills/run-in-devcontainer`.
-- rationale: Agents were installing host Go because `agents/` is not auto-loaded by Cursor/Copilot/Claude Code and `run-tests` required `go` on PATH. The Dockerfile already pins Go 1.24 and tools; using it keeps toolchains identical across Linux, macOS, and Windows (Docker Desktop).
-- alternatives: Optional host Go for agents (rejected; diverges from the pinned image). Dev Containers CLI as the only runner (rejected; not installed on most agent hosts). Makefile wrapping Docker only for a separate `docker-test` target (rejected; agents would still run `make test` / `go test` on the host).
-- impact: Makefile `docker-image`/`docker-run`; `AGENTS.md`; Cursor rule and skill; `agents/skills/run-in-devcontainer`; rewritten `run-tests`; CONTRIBUTING, README, docs/testing.md. CI continues to use `actions/setup-go` and does not call `make test`.
+- decision: Coding agents (any host OS) must build, test, and lint using the image from `.devcontainer/Dockerfile`. They must not install Go or staticcheck on the host. Makefile Go targets (`test`, `lint`, `build`, …) require the container and error on the host with `make docker-run CMD='make <target>'`. Cross-tool instructions live in `AGENTS.md`; Cursor also has `.cursor/rules/dev-environment.mdc` and `.cursor/skills/run-in-devcontainer`.
+- rationale: Agents were installing host Go because `agents/` is not auto-loaded by Cursor/Copilot/Claude Code and `run-tests` required `go` on PATH. Implicit Make-to-Docker wrapping was rejected as hard to read; a hard error pointing at `docker-run` is explicit. The Dockerfile already pins Go 1.24 and tools.
+- alternatives: Optional host Go for agents (rejected; diverges from the pinned image). Dev Containers CLI as the only runner (rejected; not installed on most agent hosts). Makefile silently wrapping Docker for `make test` (rejected; implicit and surprising).
+- impact: Makefile parse-time container guard plus `docker-image`/`docker-run`; `AGENTS.md`; Cursor rule and skill; `agents/skills/run-in-devcontainer`; rewritten `run-tests`; CONTRIBUTING, README, docs/testing.md. CI continues to use `actions/setup-go` and does not call `make test`.
 - reassessment_triggers:
   - Dev Containers CLI is universally available to agents
   - CI switched to the same Dockerfile
